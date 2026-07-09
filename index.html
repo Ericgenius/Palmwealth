@@ -1,0 +1,1775 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>PalmWealth – Enriching Lives</title>
+<!-- Firebase Compat SDK (works as global scripts, no module issues) -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script>
+  const firebaseConfig={
+    apiKey:"AIzaSyDqTm87PCtqe1jShx27UdnZN2PNXucP3xQ",
+    authDomain:"palmwealth-56afa.firebaseapp.com",
+    projectId:"palmwealth-56afa",
+    storageBucket:"palmwealth-56afa.firebasestorage.app",
+    messagingSenderId:"517470457843",
+    appId:"1:517470457843:web:a4f13f429623cf47ba0c86"
+  };
+  firebase.initializeApp(firebaseConfig);
+  const _fdb=firebase.firestore();
+  const _DOC=_fdb.collection('palmwealth').doc('db');
+
+  // In-memory cache
+  window._DB={users:[],deposits:[],withdrawals:[],passwordResets:[]};
+
+  // Promise that resolves once DB is loaded from Firestore — login/register wait for this
+  var _resolveDB;
+  window._dbReady=new Promise(function(resolve){_resolveDB=resolve;});
+
+  window.getDB=function(){return window._DB;};
+
+  window.saveDB=function(data){
+    window._DB=data;
+    return _DOC.set({data:JSON.stringify(data)}).catch(function(e){
+      console.warn('Firestore write error',e);
+      try{localStorage.setItem('pw_db_bk',JSON.stringify(data));}catch(ex){}
+    });
+  };
+</script>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700;900&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#0d0618;--bg2:#130c22;--card:#1a1030;--card2:#211440;
+  --accent:#a855f7;--accent2:#7c3aed;--accent3:#c084fc;--gold:#f59e0b;
+  --white:#ffffff;--muted:#a78bfa;--border:#2d1f50;
+  --danger:#ef4444;--success:#22c55e;--text2:#d8b4fe;
+}
+html,body{height:100%;font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--white);overflow-x:hidden}
+.page{display:none;min-height:100vh;flex-direction:column;animation:fadeIn .35s ease}
+.page.active{display:flex}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.glow-bg{position:fixed;inset:0;pointer-events:none;z-index:0;
+  background:radial-gradient(ellipse 60% 40% at 50% 0%,rgba(124,58,237,.25),transparent),
+  radial-gradient(ellipse 40% 30% at 80% 80%,rgba(168,85,247,.12),transparent)}
+
+/* ── LANDING ── */
+#pg-landing{justify-content:center;align-items:center;padding:2rem;position:relative}
+.landing-inner{z-index:1;text-align:center;width:100%;max-width:400px}
+.logo-title{font-family:'Cinzel Decorative',serif;font-size:2.6rem;font-weight:900;
+  background:linear-gradient(135deg,#e879f9,#a855f7,#6366f1);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  filter:drop-shadow(0 0 20px rgba(168,85,247,.6));letter-spacing:-.02em}
+.logo-sub{font-size:.95rem;color:var(--muted);letter-spacing:.25em;text-transform:uppercase;margin-top:.4rem}
+.palm-icon{font-size:4rem;margin-bottom:.75rem;display:block;animation:float 3s ease-in-out infinite}
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+.logo-wrap{margin-bottom:2.5rem}
+.tagline-box{background:rgba(168,85,247,.08);border:1px solid var(--border);border-radius:16px;padding:1.5rem;margin-bottom:2rem}
+.tagline-box p{color:var(--text2);font-size:.9rem;line-height:1.7}
+
+/* ── BUTTONS ── */
+.btn{display:block;width:100%;padding:.85rem 1.5rem;border-radius:14px;font-family:'DM Sans',sans-serif;
+  font-size:1rem;font-weight:600;cursor:pointer;border:none;transition:all .2s;text-align:center}
+.btn-primary{background:linear-gradient(135deg,#a855f7,#7c3aed);color:#fff;box-shadow:0 4px 20px rgba(124,58,237,.4)}
+.btn-primary:hover{transform:translateY(-2px);box-shadow:0 8px 30px rgba(124,58,237,.5)}
+.btn-outline{background:transparent;border:1.5px solid var(--accent);color:var(--accent);margin-top:.75rem}
+.btn-outline:hover{background:rgba(168,85,247,.1)}
+.btn-sm{padding:.55rem 1.1rem;font-size:.85rem;width:auto;display:inline-block}
+
+/* ── FORMS ── */
+#pg-register,#pg-login{justify-content:center;align-items:center;padding:1.5rem;position:relative}
+.form-card{z-index:1;background:var(--card);border:1px solid var(--border);border-radius:24px;
+  padding:2rem;width:100%;max-width:420px;box-shadow:0 20px 60px rgba(0,0,0,.5)}
+.form-logo{text-align:center;margin-bottom:1.75rem}
+.form-logo .logo-title{font-size:1.8rem}
+.form-logo .logo-sub{font-size:.7rem}
+.form-title{font-size:1.25rem;font-weight:700;margin-bottom:1.25rem}
+.field{margin-bottom:1.1rem}
+.field label{display:block;font-size:.78rem;color:var(--muted);margin-bottom:.35rem;text-transform:uppercase;letter-spacing:.08em}
+.field input,.field select{width:100%;padding:.8rem 1rem;background:rgba(255,255,255,.05);border:1.5px solid var(--border);
+  border-radius:12px;color:var(--white);font-size:.95rem;font-family:'DM Sans',sans-serif;outline:none;transition:border .2s}
+.field input:focus{border-color:var(--accent)}
+.field input::placeholder{color:rgba(255,255,255,.25)}
+.form-hint{font-size:.72rem;color:var(--muted);margin-top:.25rem}
+.form-link{font-size:.85rem;text-align:center;margin-top:.9rem;color:var(--muted)}
+.form-link a{color:var(--accent);cursor:pointer}
+.err{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);border-radius:10px;
+  padding:.55rem .9rem;font-size:.83rem;color:#fca5a5;margin-bottom:.9rem;display:none}
+.err.show{display:block}
+.suc{background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.3);border-radius:10px;
+  padding:.55rem .9rem;font-size:.83rem;color:#86efac;margin-bottom:.9rem;display:none}
+.suc.show{display:block}
+
+/* ── HOME ── */
+#pg-home{padding-bottom:5rem;position:relative}
+.top-header{z-index:10;position:sticky;top:0;background:rgba(13,6,24,.92);backdrop-filter:blur(12px);
+  border-bottom:1px solid var(--border);padding:.9rem 1.25rem;display:flex;align-items:center;justify-content:space-between}
+.header-logo .logo-title{font-size:1.3rem}
+.header-logo .logo-sub{font-size:.58rem;margin-top:.05rem}
+.balance-chip{background:rgba(168,85,247,.15);border:1px solid var(--border);border-radius:10px;
+  padding:.35rem .75rem;font-size:.78rem;color:var(--accent3)}
+.balance-chip span{font-weight:700;color:var(--white)}
+.home-content{padding:1.25rem;z-index:1;flex:1}
+.section-title{font-size:1.05rem;font-weight:700;margin-bottom:.9rem}
+.ticker-bar{background:var(--card);border:1px solid var(--border);border-radius:12px;
+  padding:.55rem 1rem;margin-bottom:1.2rem;overflow:hidden}
+.ticker-inner{display:flex;gap:2rem;animation:ticker 20s linear infinite;white-space:nowrap}
+@keyframes ticker{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+.ticker-item{font-size:.78rem;color:var(--muted)}
+.ticker-item strong{color:var(--success)}
+.quick-actions{display:grid;grid-template-columns:repeat(4,1fr);gap:.65rem;margin-bottom:1.4rem}
+.qa-btn{background:var(--card);border:1px solid var(--border);border-radius:16px;
+  padding:.8rem .4rem;text-align:center;cursor:pointer;transition:all .2s}
+.qa-btn:hover{border-color:var(--accent);background:var(--card2)}
+.qa-icon{font-size:1.3rem;margin-bottom:.25rem}
+.qa-label{font-size:.68rem;color:var(--muted);font-weight:500}
+.tier-card{background:var(--card);border:1px solid var(--border);border-radius:20px;
+  padding:1.2rem;margin-bottom:.9rem;transition:all .2s;position:relative;overflow:hidden}
+.tier-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;
+  background:linear-gradient(90deg,var(--accent2),var(--accent3))}
+.tier-card:hover{border-color:var(--accent);transform:translateY(-2px)}
+.tier-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:.9rem}
+.tier-name{font-size:.88rem;font-weight:700;color:var(--accent3)}
+.tier-badge{background:rgba(168,85,247,.2);border:1px solid rgba(168,85,247,.3);
+  border-radius:8px;padding:.18rem .55rem;font-size:.68rem;color:var(--accent3);font-weight:600}
+.tier-price{font-size:1.45rem;font-weight:700;margin-bottom:.2rem}
+.tier-earning{font-size:.83rem;color:var(--success);font-weight:600}
+.tier-duration{font-size:.72rem;color:var(--muted);margin-top:.1rem}
+.tier-footer{display:flex;justify-content:space-between;align-items:center;margin-top:.9rem;
+  padding-top:.9rem;border-top:1px solid var(--border)}
+.tier-roi{font-size:.72rem;color:var(--muted)}
+
+/* ── PAYMENT ── */
+#pg-payment{position:relative;align-items:center;padding:1.5rem;justify-content:center}
+.payment-card{z-index:1;background:var(--card);border:1px solid var(--border);border-radius:24px;
+  padding:2rem;width:100%;max-width:420px}
+.payment-header{display:flex;align-items:center;gap:.75rem;margin-bottom:1.4rem}
+.back-btn{cursor:pointer;color:var(--accent);font-size:1.2rem;background:none;border:none;padding:.2rem}
+.payment-title{font-size:1.15rem;font-weight:700}
+.acct-box{background:linear-gradient(135deg,#1a0a35,#2d1060);border:1.5px solid var(--accent);
+  border-radius:18px;padding:1.4rem;margin-bottom:1.2rem;text-align:center}
+.acct-type{font-size:.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:.4rem}
+.acct-logo{font-size:2.2rem;margin-bottom:.4rem}
+.acct-number{font-size:1.7rem;font-weight:700;letter-spacing:.15em;color:var(--accent3);margin-bottom:.4rem}
+.acct-name{font-size:.83rem;color:var(--muted)}
+.copy-btn{margin-top:.65rem;background:rgba(168,85,247,.15);border:1px solid var(--border);
+  color:var(--accent3);border-radius:10px;padding:.45rem .9rem;font-size:.78rem;cursor:pointer}
+.copy-btn:hover{background:rgba(168,85,247,.3)}
+.amount-display{background:rgba(168,85,247,.08);border:1px solid var(--border);border-radius:14px;
+  padding:.9rem;text-align:center;margin-bottom:1.2rem}
+.amount-label{font-size:.72rem;color:var(--muted);margin-bottom:.2rem}
+.amount-value{font-size:1.9rem;font-weight:700}
+.warning-box{background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.25);
+  border-radius:14px;padding:.9rem;margin-bottom:1.2rem}
+.warning-box p{font-size:.78rem;color:#fca5a5;line-height:1.65}
+.warning-box strong{color:#f87171}
+
+/* ── PROFILE ── */
+#pg-profile{padding-bottom:5rem;position:relative}
+.profile-hero{background:linear-gradient(180deg,rgba(124,58,237,.3),transparent);
+  padding:1.75rem 1.25rem 1.25rem;text-align:center}
+.avatar{width:68px;height:68px;background:linear-gradient(135deg,var(--accent2),var(--accent3));
+  border-radius:50%;display:flex;align-items:center;justify-content:center;
+  font-size:1.8rem;margin:0 auto .9rem;border:3px solid var(--accent)}
+.profile-phone{font-size:.95rem;font-weight:600;margin-bottom:.2rem}
+.profile-id{font-size:.78rem;color:var(--muted)}
+.vip-badge{display:inline-block;background:linear-gradient(135deg,var(--gold),#d97706);
+  color:#fff;border-radius:8px;padding:.18rem .55rem;font-size:.68rem;font-weight:700;margin-top:.4rem}
+.balance-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:.65rem;padding:0 1.25rem 1.1rem}
+.bal-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:.9rem;text-align:center}
+.bal-label{font-size:.63rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:.35rem}
+.bal-value{font-size:1rem;font-weight:700}
+.profile-actions{display:grid;grid-template-columns:repeat(3,1fr);gap:.65rem;padding:0 1.25rem 1.1rem}
+.pa-btn{background:var(--card);border:1px solid var(--border);border-radius:14px;
+  padding:.9rem .4rem;text-align:center;cursor:pointer;transition:all .2s}
+.pa-btn:hover{border-color:var(--accent)}
+.pa-icon{font-size:1.2rem;margin-bottom:.25rem}
+.pa-label{font-size:.68rem;color:var(--muted)}
+.profile-list{padding:0 1.25rem}
+.list-item{background:var(--card);border:1px solid var(--border);border-radius:14px;
+  padding:.9rem 1.1rem;display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:.65rem;cursor:pointer;transition:all .2s}
+.list-item:hover{border-color:var(--accent)}
+.list-item-left{display:flex;align-items:center;gap:.65rem}
+.list-icon-wrap{width:38px;height:38px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:1rem}
+.li-purple{background:rgba(168,85,247,.15)}
+.li-blue{background:rgba(99,102,241,.15)}
+.li-green{background:rgba(34,197,94,.15)}
+.li-orange{background:rgba(249,115,22,.15)}
+.list-item-label{font-size:.85rem;font-weight:500}
+.list-item-right{font-size:1.2rem;color:var(--muted)}
+.signout-btn{background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.3);border-radius:14px;
+  padding:.75rem;text-align:center;color:#fca5a5;cursor:pointer;transition:all .2s;font-weight:600}
+.signout-btn:hover{background:rgba(239,68,68,.25)}
+
+/* ── MODALS ── */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:100;
+  align-items:center;justify-content:center;padding:1rem}
+.modal-overlay.show{display:flex}
+.modal-content{background:var(--card);border:1px solid var(--border);border-radius:24px;
+  padding:1.5rem;width:100%;max-width:420px;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.5)}
+.modal-header{font-size:1.15rem;font-weight:700;margin-bottom:1.1rem;display:flex;align-items:center;justify-content:space-between}
+.modal-close{background:none;border:none;color:var(--muted);font-size:1.5rem;cursor:pointer;padding:0}
+.modal-close:hover{color:var(--white)}
+.edit-bal-form{display:flex;gap:.5rem;margin-top:.5rem}
+.edit-bal-input{flex:1;padding:.6rem;background:rgba(255,255,255,.05);border:1px solid var(--border);
+  border-radius:10px;color:var(--white);font-size:.9rem}
+.action-btn{padding:.5rem 1rem;border:none;border-radius:10px;font-size:.8rem;cursor:pointer;font-weight:600;transition:all .2s}
+.action-btn-purple{background:rgba(168,85,247,.2);color:var(--accent3);border:1px solid rgba(168,85,247,.3)}
+.action-btn-purple:hover{background:rgba(168,85,247,.3)}
+.action-btn-green{background:rgba(34,197,94,.2);color:var(--success);border:1px solid rgba(34,197,94,.3)}
+.action-btn-green:hover{background:rgba(34,197,94,.3)}
+.action-btn-red{background:rgba(239,68,68,.2);color:var(--danger);border:1px solid rgba(239,68,68,.3)}
+.action-btn-red:hover{background:rgba(239,68,68,.3)}
+
+/* ── BANK CARD SELECTION ── */
+.bank-card-list{display:flex;flex-direction:column;gap:.65rem;margin-bottom:1.1rem}
+.bank-card-item{background:rgba(168,85,247,.1);border:2px solid var(--border);border-radius:12px;
+  padding:.9rem;cursor:pointer;transition:all .2s;display:flex;justify-content:space-between;align-items:center}
+.bank-card-item:hover{border-color:var(--accent);background:rgba(168,85,247,.15)}
+.bank-card-item.selected{border-color:var(--accent);background:rgba(168,85,247,.2)}
+.bank-card-info{flex:1}
+.bank-card-bank{font-size:.85rem;font-weight:600;color:var(--accent3)}
+.bank-card-acct{font-size:.75rem;color:var(--muted);margin-top:.25rem}
+.bank-card-actions{display:flex;gap:.5rem}
+.bank-card-btn{background:none;border:none;color:var(--accent3);cursor:pointer;font-size:.9rem;padding:.3rem}
+.bank-card-btn:hover{color:var(--accent)}
+
+/* ── ADMIN ── */
+.admin-mobile-nav{display:none;background:var(--card);border-bottom:1px solid var(--border);
+  padding:.5rem;overflow-x:auto;white-space:nowrap;z-index:5}
+.admin-mobile-nav-item{display:inline-block;padding:.6rem 1rem;background:transparent;border:none;
+  color:var(--muted);cursor:pointer;font-size:.85rem;transition:all .2s}
+.admin-mobile-nav-item.active{color:var(--accent);border-bottom:2px solid var(--accent)}
+.admin-layout{display:flex;height:100vh;background:var(--bg)}
+.admin-sidebar{display:flex;flex-direction:column;width:220px;background:var(--card2);border-right:1px solid var(--border);
+  padding:1.25rem;overflow-y:auto}
+.admin-brand{margin-bottom:1.5rem;text-align:center}
+.admin-brand .logo-title{font-size:1.2rem}
+.admin-brand .logo-sub{font-size:.6rem}
+.sidebar-item{padding:.75rem 1rem;background:transparent;border:none;border-radius:12px;
+  color:var(--muted);cursor:pointer;font-size:.9rem;transition:all .2s;display:flex;align-items:center;gap:.6rem;margin-bottom:.4rem}
+.sidebar-item:hover{background:rgba(168,85,247,.1);color:var(--accent3)}
+.sidebar-item.active{background:rgba(168,85,247,.2);color:var(--accent);font-weight:600}
+.sidebar-icon{font-size:1.1rem}
+.admin-main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.admin-topbar{background:var(--card);border-bottom:1px solid var(--border);
+  padding:1.1rem 1.5rem;display:flex;justify-content:space-between;align-items:center}
+.admin-topbar-title{font-size:1.15rem;font-weight:700}
+.admin-content{flex:1;overflow-y:auto;padding:1.5rem}
+.admin-section{display:none}
+.admin-section.active{display:block}
+.summary-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1rem;margin-bottom:1.5rem}
+.summary-card{background:var(--card);border:1px solid var(--border);border-radius:16px;
+  padding:1.2rem;text-align:center}
+.summary-card-label{font-size:.78rem;color:var(--muted);text-transform:uppercase;margin-bottom:.5rem}
+.summary-card-value{font-size:2rem;font-weight:700;color:var(--accent3)}
+.admin-table-wrap{background:var(--card);border:1px solid var(--border);border-radius:16px;
+  padding:1.1rem;margin-bottom:1.5rem;overflow-x:auto}
+.admin-table-header{font-size:.95rem;font-weight:700;margin-bottom:.9rem;display:flex;justify-content:space-between;align-items:center}
+.admin-search{background:rgba(255,255,255,.05);border:1px solid var(--border);border-radius:10px;
+  padding:.5rem .8rem;color:var(--white);font-size:.85rem;width:200px}
+.admin-search::placeholder{color:rgba(255,255,255,.25)}
+.admin-table{width:100%;border-collapse:collapse;font-size:.85rem}
+.admin-table th{text-align:left;padding:.75rem;color:var(--muted);border-bottom:1px solid var(--border);font-weight:600}
+.admin-table td{padding:.75rem;border-bottom:1px solid var(--border)}
+.admin-table tbody tr:hover{background:rgba(168,85,247,.05)}
+.badge-approved{background:rgba(34,197,94,.2);color:var(--success);padding:.3rem .6rem;border-radius:6px;font-size:.75rem;font-weight:600}
+.badge-pending{background:rgba(249,115,22,.2);color:#fbbf24;padding:.3rem .6rem;border-radius:6px;font-size:.75rem;font-weight:600}
+.badge-rejected{background:rgba(239,68,68,.2);color:var(--danger);padding:.3rem .6rem;border-radius:6px;font-size:.75rem;font-weight:600}
+.badge-deactivated{background:rgba(168,85,247,.2);color:var(--accent3);padding:.3rem .6rem;border-radius:6px;font-size:.75rem;font-weight:600}
+.action-btns{display:flex;gap:.5rem}
+.empty-state{text-align:center;padding:2rem;color:var(--muted);font-size:.9rem}
+
+/* ── BOTTOM NAV ── */
+.bottom-nav{position:fixed;bottom:0;left:0;right:0;background:var(--card);border-top:1px solid var(--border);
+  display:grid;grid-template-columns:repeat(5,1fr);z-index:50}
+.nav-item{padding:.75rem;text-align:center;cursor:pointer;transition:all .2s;color:var(--muted)}
+.nav-item:hover{color:var(--accent)}
+.nav-item.active{color:var(--accent);border-top:3px solid var(--accent)}
+.nav-icon{font-size:1.4rem;margin-bottom:.25rem}
+.nav-label{font-size:.65rem;font-weight:500}
+
+/* ── WITHDRAWAL BANNER ── */
+#wd-banner{display:none;position:fixed;top:0;left:0;right:0;z-index:300;
+  background:linear-gradient(90deg,#22c55e,#16a34a);
+  color:#fff;font-size:.9rem;font-weight:600;text-align:center;
+  padding:.75rem 1.25rem;letter-spacing:.02em;
+  animation:slideDown .4s ease;box-shadow:0 4px 20px rgba(34,197,94,.4)}
+#wd-banner.show{display:block}
+@keyframes slideDown{from{transform:translateY(-100%)}to{transform:translateY(0)}}
+
+/* ── TIERS TICKER ── */
+.tiers-ticker-wrap{background:rgba(168,85,247,.12);border-bottom:1px solid var(--border);
+  overflow:hidden;padding:.35rem 0;white-space:nowrap}
+.tiers-ticker-track{display:inline-flex;gap:0;animation:tiersTicker 28s linear infinite}
+.tiers-ticker-track:hover{animation-play-state:paused}
+.ttt-item{display:inline-flex;align-items:center;gap:.4rem;padding:0 1.4rem;
+  font-size:.72rem;color:var(--text2)}
+.ttt-name{font-weight:700;color:var(--accent3)}
+.ttt-earn{color:var(--success);font-weight:600}
+.ttt-sep{color:var(--border);margin:0 .2rem}
+@keyframes tiersTicker{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+
+/* ── TOAST ── */
+.toast{position:fixed;bottom:1.5rem;left:50%;transform:translateX(-50%) translateY(150px);
+  background:var(--card);border:1px solid var(--border);border-radius:12px;padding:1rem 1.5rem;
+  font-size:.9rem;z-index:200;transition:transform .3s;pointer-events:none}
+.toast.show{transform:translateX(-50%) translateY(0)}
+.toast.success{border-color:rgba(34,197,94,.3);color:var(--success)}
+.toast.error{border-color:rgba(239,68,68,.3);color:var(--danger)}
+
+/* ── RESPONSIVE ── */
+@media(max-width:768px){
+  .admin-sidebar{display:none}
+  .admin-mobile-nav{display:flex}
+  .admin-layout{flex-direction:column}
+  .admin-main{height:auto}
+  .admin-content{padding:1rem}
+  .summary-grid{grid-template-columns:repeat(2,1fr)}
+  .admin-table{font-size:.75rem}
+  .admin-table th,.admin-table td{padding:.5rem}
+}
+</style>
+</head>
+<body>
+<div class="glow-bg"></div>
+<div id="toast" class="toast"></div>
+<div id="wd-banner">✅ Withdrawal request sent to admin</div>
+
+<!-- Firebase loading screen -->
+<div id="fb-loading" style="display:none;position:fixed;inset:0;z-index:9999;background:#0d0618;flex-direction:column;justify-content:center;align-items:center;gap:1.2rem">
+  <div style="font-size:3rem">🌴</div>
+  <div style="font-family:'Cinzel Decorative',serif;font-size:1.4rem;background:linear-gradient(135deg,#e879f9,#a855f7);-webkit-background-clip:text;-webkit-text-fill-color:transparent">PalmWealth</div>
+  <div style="width:48px;height:48px;border:3px solid rgba(168,85,247,.2);border-top-color:#a855f7;border-radius:50%;animation:spin .8s linear infinite"></div>
+  <div style="color:#a78bfa;font-size:.88rem">Connecting to server...</div>
+</div>
+<style>@keyframes spin{to{transform:rotate(360deg)}}</style>
+
+<!-- ══════ LANDING ══════ -->
+<div id="pg-landing" class="page active">
+  <div class="landing-inner">
+    <div class="logo-wrap">
+      <div class="palm-icon">🌴</div>
+      <div class="logo-title">PalmWealth</div>
+      <div class="logo-sub">Enriching Lives</div>
+    </div>
+    <div class="tagline-box">
+      <p>Invest wisely, earn daily. Join thousands of successful investors on our secure platform.</p>
+    </div>
+    <button class="btn btn-primary" onclick="show('pg-register')">Create Account</button>
+    <button class="btn btn-outline" onclick="show('pg-login')">Sign In</button>
+  </div>
+</div>
+
+<!-- ══════ REGISTER ══════ -->
+<div id="pg-register" class="page">
+  <div class="form-card">
+    <div class="form-logo">
+      <div class="logo-title">🌴</div>
+      <div class="logo-sub">PalmWealth</div>
+    </div>
+    <div class="form-title">Create Account</div>
+    <div id="reg-err" class="err"></div>
+    <div id="reg-suc" class="suc"></div>
+    <div class="field"><label>Phone Number</label><input id="reg-phone" type="text" placeholder="+234 (10 digits)"/></div>
+    <div class="field"><label>Email Address</label><input id="reg-email" type="email" placeholder="your@email.com"/></div>
+    <div class="field"><label>Password</label><input id="reg-pw" type="password" placeholder="Min 6 characters"/></div>
+    <div class="field"><label>Referral Code (Optional)</label><input id="reg-ref" type="text" placeholder="PWXXXX"/></div>
+    <button class="btn btn-primary" onclick="doRegister()">Sign Up</button>
+    <div class="form-link">Already have an account? <a onclick="show('pg-login')">Sign In</a></div>
+  </div>
+</div>
+
+<!-- ══════ LOGIN ══════ -->
+<div id="pg-login" class="page">
+  <div class="form-card">
+    <div class="form-logo">
+      <div class="logo-title">🌴</div>
+      <div class="logo-sub">PalmWealth</div>
+    </div>
+    <div class="form-title">Sign In</div>
+    <div id="login-err" class="err"></div>
+    <div class="field"><label>Email Address</label><input id="login-email" type="email" placeholder="your@email.com"/></div>
+    <div class="field"><label>Password</label><input id="login-pw" type="password" placeholder="Your password"/></div>
+    <button class="btn btn-primary" onclick="doLogin()">Sign In</button>
+    <div class="form-link">Don't have an account? <a onclick="show('pg-register')">Create one</a></div>
+    <div class="form-link">Forgot password? <a onclick="openModal('m-forgot')">Reset here</a></div>
+  </div>
+</div>
+
+<!-- ══════ HOME ══════ -->
+<div id="pg-home" class="page">
+  <div class="top-header">
+    <div class="header-logo"><div class="logo-title">🌴 PalmWealth</div><div class="logo-sub">Dashboard</div></div>
+    <div class="balance-chip">Balance: <span id="home-bal">₦0</span></div>
+  </div>
+  <div class="tiers-ticker-wrap">
+    <div class="tiers-ticker-track" id="tiers-ticker-track">
+      <!-- filled by JS -->
+    </div>
+  </div>
+  <div class="home-content">
+    <div class="section-title">Investment Tiers</div>
+    <div id="tier-list"></div>
+  </div>
+  <div class="bottom-nav">
+    <div class="nav-item active" onclick="navTo('pg-home','home')"><div class="nav-icon">🏠</div><div class="nav-label">Home</div></div>
+    <div class="nav-item" onclick="navTo('pg-orders','orders')"><div class="nav-icon">📋</div><div class="nav-label">My Orders</div></div>
+    <div class="nav-item" onclick="navTo('pg-tasks','tasks')"><div class="nav-icon">🎯</div><div class="nav-label">Tasks</div></div>
+    <div class="nav-item" onclick="navTo('pg-team','team')"><div class="nav-icon">👥</div><div class="nav-label">My Team</div></div>
+    <div class="nav-item" onclick="navTo('pg-profile','profile')"><div class="nav-icon">👤</div><div class="nav-label">Profile</div></div>
+  </div>
+</div>
+
+<!-- ══════ PAYMENT ══════ -->
+<div id="pg-payment" class="page">
+  <div class="payment-card">
+    <div class="payment-header">
+      <button class="back-btn" onclick="show('pg-home')">←</button>
+      <div class="payment-title">Confirm Payment</div>
+      <div style="width:24px"></div>
+    </div>
+    <div class="acct-box">
+      <div class="acct-type">Payment Account</div>
+      <div class="acct-logo">🏦</div>
+      <div class="acct-number">8915621676</div>
+      <div class="acct-name">Palmpay</div>
+      <button class="copy-btn" onclick="copyText('8915621676')">Copy Account Number</button>
+    </div>
+    <div class="amount-display">
+      <div class="amount-label">Amount to Transfer</div>
+      <div class="amount-value" id="pay-amount">₦0</div>
+    </div>
+    <div id="pay-tier-info" style="font-size:.85rem;color:var(--muted);margin-bottom:1.1rem"></div>
+    <button class="btn btn-primary" onclick="confirmPayment()">Confirm Payment</button>
+    <div class="warning-box">
+      <p><strong>⚠️ Important:</strong> Transfer the exact amount shown above. Your investment will be approved within 24 hours.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ══════ ORDERS ══════ -->
+<div id="pg-orders" class="page">
+  <div class="top-header"><div class="header-logo"><div class="logo-title">📋 My Orders</div></div></div>
+  <div style="z-index:1;flex:1;padding:1.25rem;padding-bottom:5rem">
+    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:.65rem;margin-bottom:1.4rem">
+      <div class="summary-card"><div class="summary-card-label">Active Positions</div><div class="summary-card-value" id="active-pos">0</div></div>
+      <div class="summary-card"><div class="summary-card-label">Total Earnings</div><div class="summary-card-value" id="total-earn">₦0</div></div>
+    </div>
+    <div id="orders-list"></div>
+  </div>
+  <div class="bottom-nav">
+    <div class="nav-item" onclick="navTo('pg-home','home')"><div class="nav-icon">🏠</div><div class="nav-label">Home</div></div>
+    <div class="nav-item active" onclick="navTo('pg-orders','orders')"><div class="nav-icon">📋</div><div class="nav-label">My Orders</div></div>
+    <div class="nav-item" onclick="navTo('pg-tasks','tasks')"><div class="nav-icon">🎯</div><div class="nav-label">Tasks</div></div>
+    <div class="nav-item" onclick="navTo('pg-team','team')"><div class="nav-icon">👥</div><div class="nav-label">My Team</div></div>
+    <div class="nav-item" onclick="navTo('pg-profile','profile')"><div class="nav-icon">👤</div><div class="nav-label">Profile</div></div>
+  </div>
+</div>
+
+<!-- ══════ TEAM ══════ -->
+<div id="pg-team" class="page">
+  <div class="top-header"><div class="header-logo"><div class="logo-title">👥 My Team</div></div></div>
+  <div style="z-index:1;flex:1;padding:1.25rem;padding-bottom:5rem">
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:.65rem;margin-bottom:1.4rem">
+      <div class="summary-card"><div class="summary-card-label">Team Size</div><div class="summary-card-value" id="team-sz">0</div></div>
+      <div class="summary-card"><div class="summary-card-label">Commission</div><div class="summary-card-value" id="team-comm">₦0</div></div>
+      <div class="summary-card"><div class="summary-card-label">Team Invest</div><div class="summary-card-value" id="team-inv">₦0</div></div>
+    </div>
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:1.1rem;margin-bottom:1.1rem">
+      <div style="font-size:.75rem;color:var(--muted);margin-bottom:.35rem">Your Referral Code</div>
+      <div style="font-size:1.1rem;font-weight:700;color:var(--accent3);margin-bottom:.65rem" id="ref-id">PWXXXX</div>
+      <button class="btn btn-sm" style="background:rgba(168,85,247,.2);color:var(--accent3);border:1px solid rgba(168,85,247,.3)" onclick="copyRefCode()">Copy Code</button>
+    </div>
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:1.1rem;margin-bottom:1.1rem">
+      <div style="font-size:.75rem;color:var(--muted);margin-bottom:.35rem">Referral Link</div>
+      <div style="font-size:.8rem;color:var(--accent3);margin-bottom:.65rem;word-break:break-all" id="ref-link">-</div>
+      <button class="btn btn-sm" style="background:rgba(168,85,247,.2);color:var(--accent3);border:1px solid rgba(168,85,247,.3)" onclick="copyRefLink()">Copy Link</button>
+    </div>
+    <div style="background:linear-gradient(135deg,rgba(168,85,247,.15),rgba(124,58,237,.1));border:1px solid rgba(168,85,247,.35);border-radius:14px;padding:1.1rem;margin-bottom:1.1rem">
+      <div style="font-size:.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:.4rem">💰 Referral Earnings</div>
+      <div style="font-size:1rem;font-weight:700;color:var(--accent3);margin-bottom:.3rem">40% per successful referral deposit</div>
+      <div style="font-size:.82rem;color:var(--text2);line-height:1.6">When a user you referred makes a deposit that is approved by admin, you automatically earn <strong style="color:var(--success)">40%</strong> of their deposit amount credited directly to your Referral Balance.</div>
+      <div style="margin-top:.6rem;font-size:.78rem;color:#fbbf24;font-weight:600">⚠️ Minimum withdrawal for referral earnings: ₦10,000</div>
+    </div>
+    <div style="font-size:.95rem;font-weight:700;margin-bottom:.65rem">My Referred Users</div>
+    <div id="referred-list"></div>
+  </div>
+  <div class="bottom-nav">
+    <div class="nav-item" onclick="navTo('pg-home','home')"><div class="nav-icon">🏠</div><div class="nav-label">Home</div></div>
+    <div class="nav-item" onclick="navTo('pg-orders','orders')"><div class="nav-icon">📋</div><div class="nav-label">My Orders</div></div>
+    <div class="nav-item" onclick="navTo('pg-tasks','tasks')"><div class="nav-icon">🎯</div><div class="nav-label">Tasks</div></div>
+    <div class="nav-item active" onclick="navTo('pg-team','team')"><div class="nav-icon">👥</div><div class="nav-label">My Team</div></div>
+    <div class="nav-item" onclick="navTo('pg-profile','profile')"><div class="nav-icon">👤</div><div class="nav-label">Profile</div></div>
+  </div>
+</div>
+
+<!-- ══════ TASKS ══════ -->
+<div id="pg-tasks" class="page">
+  <div class="top-header"><div class="header-logo"><div class="logo-title">🎯 Tasks</div><div class="logo-sub">Earn Rewards</div></div></div>
+  <div style="z-index:1;flex:1;padding:1.25rem;padding-bottom:5rem">
+    <div style="background:rgba(99,102,241,.1);border:1px solid rgba(99,102,241,.35);border-radius:14px;padding:1rem;margin-bottom:1rem;text-align:center">
+      <p style="font-size:.85rem;color:#c7d2fe;line-height:1.7">💼 Want to add your task to our site? Message <a href="https://t.me/Palmwealthtaskplusbot" target="_blank" style="color:var(--accent3);font-weight:700">@Palmwealthtaskplusbot</a></p>
+    </div>
+    <div style="background:rgba(249,115,22,.1);border:1px solid rgba(249,115,22,.35);border-radius:14px;padding:1rem;margin-bottom:1.1rem">
+      <p style="font-size:.82rem;color:#fbbf24;line-height:1.65">📸 <strong>Important:</strong> After completing your tasks, send screenshots of your task completion to <a href="https://t.me/Palmwealthsupportbot" target="_blank" style="color:var(--accent3);font-weight:700">@Palmwealthsupportbot</a> for verification.</p>
+    </div>
+    <div style="background:linear-gradient(135deg,rgba(168,85,247,.2),rgba(124,58,237,.12));border:1.5px solid var(--accent);border-radius:18px;padding:1.2rem;margin-bottom:1.2rem;text-align:center">
+      <div style="font-size:.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:.3rem">💰 Task Earnings</div>
+      <div style="font-size:1.9rem;font-weight:700;color:var(--accent3)" id="task-bal">₦0</div>
+      <button class="btn btn-primary" style="margin-top:.8rem" onclick="openModal('m-taskwd')">Withdraw Task Earnings</button>
+    </div>
+    <div class="section-title">📢 Join Telegram Channels — Earn ₦100 Each</div>
+    <div id="task-list"></div>
+    <div class="section-title" style="margin-top:1.2rem">🌐 Special Task</div>
+    <div id="task-special"></div>
+  </div>
+  <div class="bottom-nav">
+    <div class="nav-item" onclick="navTo('pg-home','home')"><div class="nav-icon">🏠</div><div class="nav-label">Home</div></div>
+    <div class="nav-item" onclick="navTo('pg-orders','orders')"><div class="nav-icon">📋</div><div class="nav-label">My Orders</div></div>
+    <div class="nav-item active" onclick="navTo('pg-tasks','tasks')"><div class="nav-icon">🎯</div><div class="nav-label">Tasks</div></div>
+    <div class="nav-item" onclick="navTo('pg-team','team')"><div class="nav-icon">👥</div><div class="nav-label">My Team</div></div>
+    <div class="nav-item" onclick="navTo('pg-profile','profile')"><div class="nav-icon">👤</div><div class="nav-label">Profile</div></div>
+  </div>
+</div>
+
+<!-- ══════ PROFILE ══════ -->
+<div id="pg-profile" class="page">
+  <div class="top-header"><div class="header-logo"><div class="logo-title">👤 Profile</div></div></div>
+  <div style="z-index:1;flex:1;padding-bottom:5rem">
+    <div class="profile-hero">
+      <div class="avatar">🌴</div>
+      <div class="profile-phone" id="prof-phone">+234***</div>
+      <div class="profile-id" id="prof-id">ID: -</div>
+      <div class="vip-badge" id="prof-vip">No Tier</div>
+    </div>
+    <div class="balance-grid">
+      <div class="bal-card"><div class="bal-label">Deposit</div><div class="bal-value" id="p-dep">₦0</div></div>
+      <div class="bal-card"><div class="bal-label">Investment</div><div class="bal-value" id="p-inv">₦0</div></div>
+      <div class="bal-card"><div class="bal-label">Referral</div><div class="bal-value" id="p-ref">₦0</div></div>
+    </div>
+    <div class="profile-actions">
+      <div class="pa-btn" onclick="openModal('m-withdraw')"><div class="pa-icon">💸</div><div class="pa-label">Withdraw</div></div>
+      <div class="pa-btn" onclick="openModal('m-bankcard')"><div class="pa-icon">💳</div><div class="pa-label">Bank Card</div></div>
+    </div>
+    <div class="profile-list">
+      <div class="list-item" onclick="openModal('m-recharge')">
+        <div class="list-item-left"><div class="list-icon-wrap li-blue">🔄</div><div class="list-item-label">Recharge Logs</div></div>
+        <div class="list-item-right">›</div>
+      </div>
+      <div class="list-item" onclick="openModal('m-wdlogs')">
+        <div class="list-item-left"><div class="list-icon-wrap li-green">📋</div><div class="list-item-label">Withdrawal Logs</div></div>
+        <div class="list-item-right">›</div>
+      </div>
+      <div class="list-item" onclick="openModal('m-help')">
+        <div class="list-item-left"><div class="list-icon-wrap li-orange">🎧</div><div class="list-item-label">Online Support</div></div>
+        <div class="list-item-right">›</div>
+      </div>
+    </div>
+    <div style="padding:0 1.25rem;margin-top:.65rem">
+      <div class="signout-btn" onclick="doLogout()">⬆ Sign Out Securely</div>
+    </div>
+  </div>
+  <div class="bottom-nav">
+    <div class="nav-item" onclick="navTo('pg-home','home')"><div class="nav-icon">🏠</div><div class="nav-label">Home</div></div>
+    <div class="nav-item" onclick="navTo('pg-orders','orders')"><div class="nav-icon">📋</div><div class="nav-label">My Orders</div></div>
+    <div class="nav-item" onclick="navTo('pg-tasks','tasks')"><div class="nav-icon">🎯</div><div class="nav-label">Tasks</div></div>
+    <div class="nav-item" onclick="navTo('pg-team','team')"><div class="nav-icon">👥</div><div class="nav-label">My Team</div></div>
+    <div class="nav-item active" onclick="navTo('pg-profile','profile')"><div class="nav-icon">👤</div><div class="nav-label">Profile</div></div>
+  </div>
+</div>
+
+<!-- ══════ ADMIN ══════ -->
+<div id="pg-admin" class="page">
+  <div class="admin-mobile-nav" id="mob-nav">
+    <div class="admin-mobile-nav-item active" onclick="aTab('dash',this)">Dashboard</div>
+    <div class="admin-mobile-nav-item" onclick="aTab('users',this)">Users</div>
+    <div class="admin-mobile-nav-item" onclick="aTab('deposits',this)">Deposits</div>
+    <div class="admin-mobile-nav-item" onclick="aTab('investments',this)">Investments</div>
+    <div class="admin-mobile-nav-item" onclick="aTab('referrals',this)">Referrals</div>
+    <div class="admin-mobile-nav-item" onclick="aTab('withdrawals',this)">Withdrawals</div>
+    <div class="admin-mobile-nav-item" onclick="aTab('settings',this)">Settings</div>
+    <div class="admin-mobile-nav-item" onclick="aTab('resets',this)">Resets</div>
+    <div class="admin-mobile-nav-item" onclick="doLogout()" style="color:var(--danger)">Logout</div>
+  </div>
+  <div class="admin-layout">
+    <div class="admin-sidebar">
+      <div class="admin-brand">
+        <div class="logo-title">🌴 PalmWealth</div>
+        <div class="logo-sub">Admin Panel</div>
+      </div>
+      <div class="sidebar-item active" onclick="aTab('dash',this)"><span class="sidebar-icon">📊</span>Dashboard</div>
+      <div class="sidebar-item" onclick="aTab('users',this)"><span class="sidebar-icon">👥</span>Users</div>
+      <div class="sidebar-item" onclick="aTab('deposits',this)"><span class="sidebar-icon">💳</span>Deposits</div>
+      <div class="sidebar-item" onclick="aTab('investments',this)"><span class="sidebar-icon">📈</span>Investments</div>
+      <div class="sidebar-item" onclick="aTab('referrals',this)"><span class="sidebar-icon">🔗</span>Referrals</div>
+      <div class="sidebar-item" onclick="aTab('withdrawals',this)"><span class="sidebar-icon">💸</span>Withdrawals</div>
+      <div class="sidebar-item" onclick="aTab('settings',this)"><span class="sidebar-icon">⚙️</span>Settings</div>
+      <div class="sidebar-item" onclick="aTab('resets',this)"><span class="sidebar-icon">🔐</span>Password Resets</div>
+      <div style="flex:1"></div>
+      <div class="sidebar-item" onclick="doLogout()" style="color:var(--danger)"><span class="sidebar-icon">🚪</span>Logout</div>
+    </div>
+    <div class="admin-main">
+      <div class="admin-topbar">
+        <div class="admin-topbar-title" id="a-title">Dashboard</div>
+        <div style="font-size:.78rem;color:var(--muted)">Admin: <span id="admin-email-label"></span></div>
+      </div>
+      <div class="admin-content">
+
+        <!-- DASHBOARD -->
+        <div class="admin-section active" id="a-dash">
+          <div class="summary-grid">
+            <div class="summary-card"><div class="summary-card-label">Total Users</div><div class="summary-card-value" id="a-tot-users">0</div></div>
+            <div class="summary-card"><div class="summary-card-label">Approved Deposits</div><div class="summary-card-value" id="a-app-dep">0</div></div>
+            <div class="summary-card"><div class="summary-card-label">Pending Deposits</div><div class="summary-card-value" id="a-pen-dep">0</div></div>
+            <div class="summary-card"><div class="summary-card-label">Active Investments</div><div class="summary-card-value" id="a-act-inv">0</div></div>
+          </div>
+          <div class="admin-table-wrap">
+            <div class="admin-table-header">Recent Deposits</div>
+            <table class="admin-table"><thead><tr><th>User</th><th>Amount</th><th>Status</th><th>Date</th></tr></thead>
+            <tbody id="a-dep-preview"></tbody></table>
+          </div>
+          <div class="admin-table-wrap">
+            <div class="admin-table-header">Recent Users</div>
+            <table class="admin-table"><thead><tr><th>Email</th><th>Phone</th><th>Joined</th><th>Status</th></tr></thead>
+            <tbody id="a-usr-preview"></tbody></table>
+          </div>
+        </div>
+
+        <!-- USERS -->
+        <div class="admin-section" id="a-users">
+          <div class="admin-table-wrap">
+            <div class="admin-table-header">
+              All Users
+              <input class="admin-search" type="text" placeholder="Search users..." oninput="filterUsers(this.value)"/>
+            </div>
+            <table class="admin-table"><thead><tr><th>ID</th><th>Email</th><th>Phone</th><th>Password</th><th>Joined</th><th>Status</th><th>Withdrawal Activity</th><th>Actions</th></tr></thead>
+            <tbody id="a-users-tb"></tbody></table>
+          </div>
+          <div class="admin-table-wrap" id="bal-editor" style="display:none">
+            <div class="admin-table-header" id="bal-editor-hdr">Edit Balances</div>
+            <div style="padding:1.1rem">
+              <div class="field"><label>Deposit Balance (₦)</label>
+                <div class="edit-bal-form"><input class="edit-bal-input" type="number" id="ed-dep" placeholder="0"/><button class="action-btn action-btn-purple" onclick="saveBalance('deposit')">Save</button></div>
+              </div>
+              <div class="field"><label>Investment Balance (₦)</label>
+                <div class="edit-bal-form"><input class="edit-bal-input" type="number" id="ed-inv" placeholder="0"/><button class="action-btn action-btn-purple" onclick="saveBalance('investment')">Save</button></div>
+              </div>
+              <div class="field"><label>Referral Balance (₦)</label>
+                <div class="edit-bal-form"><input class="edit-bal-input" type="number" id="ed-ref" placeholder="0"/><button class="action-btn action-btn-purple" onclick="saveBalance('referral')">Save</button></div>
+              </div>
+              <div class="field"><label>Task Balance (₦)</label>
+                <div class="edit-bal-form"><input class="edit-bal-input" type="number" id="ed-task" placeholder="0"/><button class="action-btn action-btn-purple" onclick="saveBalance('task')">Save</button></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- DEPOSITS -->
+        <div class="admin-section" id="a-deposits">
+          <div class="admin-table-wrap">
+            <div class="admin-table-header">All Deposits</div>
+            <table class="admin-table"><thead><tr><th>Email</th><th>Amount</th><th>Tier</th><th>Status</th><th>Date</th><th>Actions</th></tr></thead>
+            <tbody id="a-dep-tb"></tbody></table>
+          </div>
+        </div>
+
+        <!-- INVESTMENTS -->
+        <div class="admin-section" id="a-investments">
+          <div class="admin-table-wrap">
+            <div class="admin-table-header">Active Investments</div>
+            <table class="admin-table"><thead><tr><th>Email</th><th>Tier</th><th>Daily Earning</th><th>Duration</th><th>Status</th><th>Actions</th></tr></thead>
+            <tbody id="a-inv-tb"></tbody></table>
+          </div>
+        </div>
+
+        <!-- REFERRALS -->
+        <div class="admin-section" id="a-referrals">
+          <div class="admin-table-wrap">
+            <div class="admin-table-header">Referral Network</div>
+            <table class="admin-table"><thead><tr><th>Email</th><th>Ref Code</th><th>Referrals</th><th>Commission</th></tr></thead>
+            <tbody id="a-ref-tb"></tbody></table>
+          </div>
+        </div>
+
+        <!-- WITHDRAWALS -->
+        <div class="admin-section" id="a-withdrawals">
+          <div class="admin-table-wrap">
+            <div class="admin-table-header">Withdrawal Requests</div>
+            <table class="admin-table"><thead><tr><th>Email</th><th>Amount</th><th>Bank</th><th>Account</th><th>Status</th><th>Date</th><th>Actions</th></tr></thead>
+            <tbody id="a-wd-tb"></tbody></table>
+          </div>
+        </div>
+
+        <!-- SETTINGS -->
+        <div class="admin-section" id="a-settings">
+          <div class="admin-table-wrap">
+            <div class="admin-table-header">Admin Settings</div>
+            <div style="padding:1.1rem">
+              <div class="field"><label>Change Admin Password</label>
+                <div class="edit-bal-form"><input class="edit-bal-input" type="password" id="a-new-pw" placeholder="New password"/><button class="action-btn action-btn-purple" onclick="changeAdminPw()">Update</button></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- PASSWORD RESETS -->
+        <div class="admin-section" id="a-resets">
+          <div class="admin-table-wrap">
+            <div class="admin-table-header">Password Reset Requests</div>
+            <table class="admin-table"><thead><tr><th>Email</th><th>Requested Password</th><th>Date</th><th>Status</th></tr></thead>
+            <tbody id="a-rst-tb"></tbody></table>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════ MODALS ══════ -->
+
+<!-- Admin User Detail Modal -->
+<div id="m-userdetail" class="modal-overlay">
+  <div class="modal-content">
+    <div class="modal-header">
+      <span>👤 User Details</span>
+      <button class="modal-close" onclick="closeModal('m-userdetail')">×</button>
+    </div>
+    <div id="userdetail-body" style="font-size:.88rem;line-height:2"></div>
+  </div>
+</div>
+
+<!-- Bank Card Modal -->
+<div id="m-bankcard" class="modal-overlay">
+  <div class="modal-content">
+    <div class="modal-header">
+      <span>💳 Bank Card</span>
+      <button class="modal-close" onclick="closeModal('m-bankcard')">×</button>
+    </div>
+    <div id="saved-cards" class="bank-card-list"></div>
+    <div class="field"><label>Bank Name</label><input id="bc-bank" type="text" placeholder="e.g., GTBank"/></div>
+    <div class="field"><label>Account Number</label><input id="bc-acct" type="text" placeholder="e.g., 0123456789"/></div>
+    <div class="field"><label>Account Name</label><input id="bc-name" type="text" placeholder="Your name"/></div>
+    <button class="btn btn-primary" onclick="saveBankCard()">Save Bank Card</button>
+  </div>
+</div>
+
+<!-- Withdraw Modal -->
+<div id="m-withdraw" class="modal-overlay">
+  <div class="modal-content">
+    <div class="modal-header">
+      <span>💸 Withdraw Funds</span>
+      <button class="modal-close" onclick="closeModal('m-withdraw')">×</button>
+    </div>
+    <div id="wd-err" class="err"></div>
+    <div id="wd-suc" class="suc"></div>
+    <div id="wd-bal-note" style="font-size:.82rem;color:var(--success);font-weight:600;margin-bottom:.6rem"></div>
+    <div style="font-size:.85rem;color:var(--muted);margin-bottom:1rem">Select a bank card</div>
+    <div id="wd-cards" class="bank-card-list"></div>
+    <div class="field"><label>Amount (₦)</label><input id="wd-amt" type="number" placeholder="Amount to withdraw"/></div>
+    <div style="font-size:.72rem;color:var(--muted);margin-bottom:.9rem">⚠️ Deposit balance is not withdrawable. Only Investment &amp; Referral balance can be withdrawn.</div>
+    <button class="btn btn-primary" onclick="requestWd()">Request Withdrawal</button>
+  </div>
+</div>
+
+<!-- Recharge Logs Modal -->
+<div id="m-recharge" class="modal-overlay">
+  <div class="modal-content">
+    <div class="modal-header">
+      <span>🔄 Recharge Logs</span>
+      <button class="modal-close" onclick="closeModal('m-recharge')">×</button>
+    </div>
+    <table class="admin-table" style="font-size:.85rem"><thead><tr><th>Amount</th><th>Tier</th><th>Status</th><th>Date</th></tr></thead>
+    <tbody id="recharge-body"></tbody></table>
+  </div>
+</div>
+
+<!-- Withdrawal Logs Modal -->
+<div id="m-wdlogs" class="modal-overlay">
+  <div class="modal-content">
+    <div class="modal-header">
+      <span>📋 Withdrawal Logs</span>
+      <button class="modal-close" onclick="closeModal('m-wdlogs')">×</button>
+    </div>
+    <table class="admin-table" style="font-size:.85rem"><thead><tr><th>Amount</th><th>Bank</th><th>Status</th><th>Date</th></tr></thead>
+    <tbody id="wd-body"></tbody></table>
+  </div>
+</div>
+
+<!-- Help Modal -->
+<div id="m-help" class="modal-overlay">
+  <div class="modal-content">
+    <div class="modal-header">
+      <span>🎧 Online Support</span>
+      <button class="modal-close" onclick="closeModal('m-help')">×</button>
+    </div>
+    <div style="text-align:center;padding:1.5rem">
+      <div style="font-size:1rem;color:var(--muted);line-height:1.8">
+        <p>📢 Join our telegram channel</p>
+        <p><a href="https://t.me/GLOBALUPDATESS" target="_blank" style="color:var(--accent3);font-weight:600;word-break:break-all">https://t.me/GLOBALUPDATESS</a></p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Task Earnings Withdrawal Modal -->
+<div id="m-taskwd" class="modal-overlay">
+  <div class="modal-content">
+    <div class="modal-header">
+      <span>💸 Withdraw Task Earnings</span>
+      <button class="modal-close" onclick="closeModal('m-taskwd')">×</button>
+    </div>
+    <div id="twd-err" class="err"></div>
+    <div id="twd-suc" class="suc"></div>
+    <div id="twd-bal-note" style="font-size:.82rem;color:var(--success);font-weight:600;margin-bottom:.9rem"></div>
+    <div class="field"><label>Bank Name</label><input id="tw-bank" type="text" placeholder="e.g., GTBank"/></div>
+    <div class="field"><label>Account Name</label><input id="tw-name" type="text" placeholder="Your name"/></div>
+    <div class="field"><label>Account Number</label><input id="tw-acct" type="text" placeholder="e.g., 0123456789"/></div>
+    <div class="field"><label>Amount (₦)</label><input id="tw-amt" type="number" placeholder="Amount to withdraw"/></div>
+    <button class="btn btn-primary" onclick="requestTaskWd()">Request Withdrawal</button>
+  </div>
+</div>
+
+<!-- Forgot Password Modal -->
+<div id="m-forgot" class="modal-overlay">
+  <div class="modal-content">
+    <div class="modal-header">
+      <span>🔐 Forgot Password</span>
+      <button class="modal-close" onclick="closeModal('m-forgot')">×</button>
+    </div>
+    <div style="padding:1.5rem">
+      <div id="fp-err" class="err"></div>
+      <div id="fp-suc" class="suc"></div>
+      <div class="field"><label>Email Address</label><input id="fp-email" type="email" placeholder="your@email.com"/></div>
+      <button class="btn btn-primary" onclick="sendPasswordReset()">SEND TO ADMIN</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const TIERS=[
+  {name:'Tier 1',price:500,daily:50,days:30},
+  {name:'Tier 2',price:1000,daily:100,days:30},
+  {name:'Tier 3',price:2000,daily:250,days:30},
+  {name:'Tier 4',price:3000,daily:450,days:30},
+  {name:'Tier 5',price:5000,daily:600,days:30},
+  {name:'Tier 6',price:10000,daily:800,days:30},
+  {name:'Tier 7',price:20000,daily:1000,days:30},
+  {name:'Tier 8',price:50000,daily:3250,days:30},
+  {name:'Tier 9',price:100000,daily:5500,days:30},
+  {name:'Tier 10',price:200000,daily:8700,days:30},
+  {name:'Tier 11',price:500000,daily:20000,days:30},
+  {name:'Tier 12',price:800000,daily:40000,days:30}
+];
+const ADMINS=[
+  {email:'ericesther735@gmail.com',pw:'EricEsther10@15'},
+  {email:'umarfauq20@gmail.com',pw:'Alfaruqy1'},
+  {email:'jolayemidavid792@gmail.com',pw:'David123'}
+];
+const TG_TASKS=[
+  {id:'tg1',name:'AYS Update',url:'https://t.me/aysupdate05',reward:100},
+  {id:'tg2',name:'Mega Naija Hub',url:'https://t.me/meganaijahub12',reward:100},
+  {id:'tg3',name:'Apex Updates',url:'https://t.me/apexupdates05',reward:100},
+  {id:'tg4',name:'Naija Updates',url:'https://t.me/naijaupdates02',reward:100},
+  {id:'tg5',name:'Global Updates',url:'https://t.me/GLOBALUPDATESS',reward:100}
+];
+const AFRIVEXA_TASK={id:'afrivexa',name:'Afrivexa',url:'https://www.afrivexa.com/home?invite_code=554853',reward:200};
+
+// ══════════ STORAGE ══════════
+// getDB and saveDB are defined above in the Firebase compat block.
+// Session stored locally (per device - intentional, only DB is cloud)
+function getSess(){try{return JSON.parse(localStorage.getItem('pw_sess'))||null;}catch{return null;}}
+function setSess(u){localStorage.setItem('pw_sess',JSON.stringify(u));}
+function clearSess(){localStorage.removeItem('pw_sess');}
+function getFreshUser(id){return(getDB().users||[]).find(u=>u.id===id)||null;}
+
+// ══════════ NAVIGATION ══════════
+function show(id){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  const el=document.getElementById(id);
+  if(el){el.classList.add('active');window.scrollTo(0,0);}
+}
+function navTo(pgId,tab){
+  show(pgId);
+  if(tab==='home')renderHome();
+  else if(tab==='orders')renderOrders();
+  else if(tab==='tasks')renderTasks();
+  else if(tab==='team')renderTeam();
+  else if(tab==='profile')renderProfile();
+}
+
+// ══════════ AUTH ══════════
+async function doRegister(){
+  const phone=document.getElementById('reg-phone').value.trim();
+  const email=document.getElementById('reg-email').value.trim().toLowerCase();
+  const pw=document.getElementById('reg-pw').value;
+  const ref=document.getElementById('reg-ref').value.trim().toUpperCase();
+  const errEl=document.getElementById('reg-err');
+  const sucEl=document.getElementById('reg-suc');
+  errEl.className='err';sucEl.className='suc';
+
+  if(!phone||!email||!pw){errEl.textContent='All fields except referral are required.';errEl.className='err show';return;}
+  if(!/^\+234\d{10}$/.test(phone)){errEl.textContent='Phone must be +234 followed by exactly 10 digits.';errEl.className='err show';return;}
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){errEl.textContent='Enter a valid email address.';errEl.className='err show';return;}
+  if(pw.length<6){errEl.textContent='Password must be at least 6 characters.';errEl.className='err show';return;}
+
+  // Wait for live DB before checking duplicates
+  sucEl.textContent='Checking...';sucEl.className='suc show';
+  try{await window._dbReady;}catch(e){}
+  sucEl.className='suc';
+
+  const db=getDB();
+  if(db.users.find(u=>u.email===email)){errEl.textContent='Email already registered. Please sign in.';errEl.className='err show';return;}
+
+  const uid='PW'+Math.random().toString(36).substr(2,6).toUpperCase();
+  const refCode='PW'+Math.random().toString(36).substr(2,4).toUpperCase();
+  const user={id:uid,email,phone,pw,refCode,
+    depositBalance:0,investmentBalance:0,referralBalance:0,taskBalance:0,tasksDone:[],
+    activeTier:null,dailyEarning:0,totalEarnings:0,
+    referrals:[],withdrawalNotes:[],forgotPasswordNotes:[],
+    status:'active',joined:new Date().toLocaleDateString(),
+    bankCards:[],referredBy:ref||null};
+  db.users.push(user);
+
+  if(ref){const refUser=db.users.find(u=>u.refCode===ref);if(refUser&&!refUser.referrals.includes(uid))refUser.referrals.push(uid);}
+  await saveDB(db);
+  sucEl.textContent='Account created! Signing you in...';sucEl.className='suc show';
+  setTimeout(()=>{setSess(user);enterApp();},1100);
+}
+
+async function doLogin(){
+  const email=document.getElementById('login-email').value.trim().toLowerCase();
+  const pw=document.getElementById('login-pw').value;
+  const errEl=document.getElementById('login-err');
+  errEl.className='err';
+
+  if(!email||!pw){errEl.textContent='Please enter your email and password.';errEl.className='err show';return;}
+
+  // Admin check — instant, no DB needed
+  const adminMatch=ADMINS.find(a=>a.email===email&&a.pw===pw);
+  if(adminMatch){setSess({isAdmin:true,email});renderAdmin();show('pg-admin');return;}
+
+  // Wait for DB to be loaded from Firestore before checking users
+  errEl.textContent='Connecting...';errEl.className='err show';
+  try{await window._dbReady;}catch(e){}
+  errEl.className='err';
+
+  const db=getDB();
+  const user=db.users.find(u=>u.email===email&&u.pw===pw);
+  if(!user){errEl.textContent='Incorrect email or password. If you registered on another device, please wait a moment and try again.';errEl.className='err show';return;}
+  if(user.status==='suspended'){errEl.textContent='Account suspended. Contact support.';errEl.className='err show';return;}
+  setSess(user);enterApp();
+}
+
+function enterApp(){
+  renderHome();renderProfile();renderTeam();renderOrders();renderTasks();show('pg-home');
+}
+
+function doLogout(){clearSess();show('pg-landing');}
+
+// ══════════ HOME ══════════
+function renderHome(){
+  const s=getSess();if(!s||s.isAdmin)return;
+  const user=getFreshUser(s.id);if(!user)return;
+  const total=(user.depositBalance||0)+(user.investmentBalance||0)+(user.referralBalance||0)+(user.taskBalance||0);
+  document.getElementById('home-bal').textContent='₦'+total.toLocaleString();
+
+  // Build tiers ticker (doubled for seamless loop)
+  const tickerItems=TIERS.map(t=>`<span class="ttt-item"><span class="ttt-name">${t.name}</span><span class="ttt-sep">·</span>₦${t.price.toLocaleString()}<span class="ttt-sep">→</span><span class="ttt-earn">₦${t.daily.toLocaleString()}/day</span></span>`).join('');
+  const track=document.getElementById('tiers-ticker-track');
+  if(track)track.innerHTML=tickerItems+tickerItems; // doubled for seamless loop
+
+  const list=document.getElementById('tier-list');
+  list.innerHTML=TIERS.map((t,i)=>{
+    const roi=((t.daily*t.days)/t.price*100).toFixed(0);
+    return`<div class="tier-card">
+      <div class="tier-header"><span class="tier-name">${t.name}</span><span class="tier-badge">ROI ${roi}%</span></div>
+      <div class="tier-price">₦${t.price.toLocaleString()}</div>
+      <div class="tier-earning">↗ ₦${t.daily.toLocaleString()} / day</div>
+      <div class="tier-duration">⏱ ${t.days} days</div>
+      <div class="tier-footer">
+        <span class="tier-roi">Total profit: ₦${(t.daily*t.days).toLocaleString()}</span>
+        <button class="btn btn-primary btn-sm" onclick="buyTier(${i})">Get</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+let _selTier=0;
+function buyTier(i){
+  const t=TIERS[i];_selTier=i;
+  document.getElementById('pay-amount').textContent='₦'+t.price.toLocaleString();
+  document.getElementById('pay-tier-info').textContent=t.name+' – ₦'+t.daily.toLocaleString()+'/day for '+t.days+' days';
+  show('pg-payment');
+}
+
+async function confirmPayment(){
+  const s=getSess();if(!s)return;
+  const db=getDB();
+  const user=db.users.find(u=>u.id===s.id);
+  if(!user){show('pg-home');return;}
+  const tier=TIERS[_selTier];
+  db.deposits.push({id:'D'+Date.now(),userId:s.id,userEmail:user.email,amount:tier.price,
+    tierIndex:_selTier,tierName:tier.name,status:'pending',date:new Date().toLocaleDateString()});
+  await saveDB(db);
+  toast('Payment submitted! Awaiting admin approval.','success');
+  show('pg-home');
+}
+
+// ══════════ ORDERS ══════════
+function renderOrders(){
+  const s=getSess();if(!s||s.isAdmin)return;
+  const db=getDB();
+  const user=db.users.find(u=>u.id===s.id);if(!user)return;
+  const myDeps=db.deposits.filter(d=>d.userId===s.id&&d.status==='approved');
+  document.getElementById('active-pos').textContent=myDeps.length;
+  document.getElementById('total-earn').textContent='₦'+(user.totalEarnings||0).toLocaleString();
+  const list=document.getElementById('orders-list');
+  if(!myDeps.length){list.innerHTML='<div class="empty-state">No active staking positions found</div>';return;}
+  list.innerHTML=myDeps.map(d=>{const td=TIERS[d.tierIndex];const da=td?td.daily:(d.dailyEarning||0);return`<div class="tier-card">
+    <div class="tier-header"><span class="tier-name">${d.tierName}</span><span class="tier-badge" style="background:rgba(34,197,94,.2);color:var(--success)">Active</span></div>
+    <div class="tier-price">₦${d.amount.toLocaleString()}</div>
+    <div class="tier-earning">↗ ₦${da.toLocaleString()} / day</div>
+    <div class="tier-duration">⏱ 30 days</div>
+    <div class="tier-footer"><span class="tier-roi">Approved: ${d.date}</span></div>
+  </div>`;}).join('');
+}
+
+// ══════════ TEAM ══════════
+function renderTeam(){
+  const s=getSess();if(!s||s.isAdmin)return;
+  const db=getDB();
+  const user=db.users.find(u=>u.id===s.id);if(!user)return;
+  document.getElementById('team-comm').textContent='₦'+(user.referralBalance||0).toLocaleString();
+  document.getElementById('team-sz').textContent=(user.referrals||[]).length;
+  const totalInv=(user.referrals||[]).reduce((acc,uid)=>{const ru=db.users.find(u=>u.id===uid);return acc+(ru?(ru.depositBalance||0)+(ru.investmentBalance||0):0);},0);
+  document.getElementById('team-inv').textContent='₦'+totalInv.toLocaleString();
+  document.getElementById('ref-id').textContent=user.refCode;
+  const link=window.location.href.split('?')[0]+'?ref='+user.refCode;
+  document.getElementById('ref-link').textContent=link.length>38?link.substr(0,38)+'...':link;
+
+  // Referred users list
+  const listEl=document.getElementById('referred-list');
+  if(!listEl)return;
+  if(!(user.referrals||[]).length){
+    listEl.innerHTML='<div class="empty-state" style="background:var(--card);border:1px solid var(--border);border-radius:14px">No referrals yet. Share your code to earn!</div>';return;
+  }
+  listEl.innerHTML=(user.referrals||[]).map(uid=>{
+    const ru=db.users.find(u=>u.id===uid);if(!ru)return'';
+    const theirDeps=db.deposits.filter(d=>d.userId===uid&&d.status==='approved');
+    const totalDep=theirDeps.reduce((a,d)=>a+d.amount,0);
+    const commission=totalDep*0.4;
+    return`<div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:.9rem 1.1rem;margin-bottom:.65rem;display:flex;justify-content:space-between;align-items:center">
+      <div>
+        <div style="font-size:.85rem;font-weight:600">${ru.email}</div>
+        <div style="font-size:.72rem;color:var(--muted);margin-top:.15rem">Joined ${ru.joined}</div>
+        <div style="font-size:.72rem;color:var(--muted)">Deposits: ₦${totalDep.toLocaleString()}</div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-size:.72rem;color:var(--muted)">Your commission</div>
+        <div style="font-size:1rem;font-weight:700;color:var(--success)">₦${commission.toLocaleString()}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+function copyRefCode(){const s=getSess();if(!s)return;const u=getFreshUser(s.id);if(u)copyText(u.refCode);}
+function copyRefLink(){const s=getSess();if(!s)return;const u=getFreshUser(s.id);if(u)copyText(window.location.href.split('?')[0]+'?ref='+u.refCode);}
+
+// ══════════ PROFILE ══════════
+function renderProfile(){
+  const s=getSess();if(!s||s.isAdmin)return;
+  const db=getDB();
+  const user=db.users.find(u=>u.id===s.id);if(!user)return;
+  const ph=user.phone;
+  document.getElementById('prof-phone').textContent=ph.substr(0,5)+'*****'+ph.slice(-2);
+  document.getElementById('prof-id').textContent='ID: '+user.id;
+  document.getElementById('prof-vip').textContent=user.activeTier!=null?'VIP '+(user.activeTier+1):'No Tier';
+  document.getElementById('p-dep').textContent='₦'+(user.depositBalance||0).toLocaleString();
+  document.getElementById('p-inv').textContent='₦'+(user.investmentBalance||0).toLocaleString();
+  document.getElementById('p-ref').textContent='₦'+(user.referralBalance||0).toLocaleString();
+
+  const myDeps=db.deposits.filter(d=>d.userId===s.id);
+  document.getElementById('recharge-body').innerHTML=myDeps.length
+    ?myDeps.map(d=>`<tr><td>₦${d.amount.toLocaleString()}</td><td>${d.tierName}</td><td><span class="badge-${d.status}">${d.status}</span></td><td>${d.date}</td></tr>`).join('')
+    :'<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:.9rem">No records</td></tr>';
+
+  const myWds=db.withdrawals.filter(w=>w.userId===s.id);
+  document.getElementById('wd-body').innerHTML=myWds.length
+    ?myWds.map(w=>`<tr><td>₦${w.amount.toLocaleString()}</td><td>${w.bank}</td><td><span class="badge-${w.status}">${w.status}</span></td><td>${w.date}</td></tr>`).join('')
+    :'<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:.9rem">No records</td></tr>';
+}
+
+// ══════════ MODALS ══════════
+function openModal(id){
+  if(id==='m-bankcard')renderBankCardModal();
+  if(id==='m-withdraw')renderWithdrawModal();
+  if(id==='m-taskwd')renderTaskWdModal();
+  document.getElementById(id).classList.add('show');
+}
+function closeModal(id){document.getElementById(id).classList.remove('show');}
+document.querySelectorAll('.modal-overlay').forEach(m=>{
+  m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('show');});
+});
+
+// ══════════ BANK CARD MANAGEMENT ══════════
+function renderBankCardModal(){
+  const s=getSess();if(!s)return;
+  const user=getFreshUser(s.id);if(!user)return;
+  const cards=user.bankCards||[];
+  const html=cards.map((card,idx)=>`
+    <div class="bank-card-item">
+      <div class="bank-card-info">
+        <div class="bank-card-bank">${card.bank}</div>
+        <div class="bank-card-acct">${card.acct} - ${card.name}</div>
+      </div>
+      <div class="bank-card-actions">
+        <button class="bank-card-btn" onclick="editBankCard(${idx})">✏️</button>
+        <button class="bank-card-btn" onclick="deleteBankCard(${idx})">🗑️</button>
+      </div>
+    </div>
+  `).join('');
+  document.getElementById('saved-cards').innerHTML=html||'<div class="empty-state">No saved cards yet</div>';
+}
+
+function renderWithdrawModal(){
+  const s=getSess();if(!s)return;
+  const user=getFreshUser(s.id);if(!user)return;
+  const cards=user.bankCards||[];
+  const withdrawable=(user.investmentBalance||0)+(user.referralBalance||0);
+  const html=cards.map((card,idx)=>`
+    <div class="bank-card-item" onclick="selectCard(${idx})">
+      <div class="bank-card-info">
+        <div class="bank-card-bank">${card.bank}</div>
+        <div class="bank-card-acct">${card.acct} - ${card.name}</div>
+      </div>
+    </div>
+  `).join('');
+  document.getElementById('wd-cards').innerHTML=html||'<div class="empty-state">No saved cards. Add one in Bank Card section.</div>';
+  // Show withdrawable balance note
+  const noteEl=document.getElementById('wd-bal-note');
+  if(noteEl)noteEl.innerHTML='Withdrawable: ₦'+withdrawable.toLocaleString()+' (Investment + Referral)<br><span style="color:#fbbf24;font-size:.75rem">⚠️ Min ₦10,000 for referral earnings</span>';
+}
+
+let _selectedCardIdx=-1;
+function selectCard(idx){
+  _selectedCardIdx=idx;
+  document.querySelectorAll('#wd-cards .bank-card-item').forEach((el,i)=>{
+    if(i===idx)el.classList.add('selected');
+    else el.classList.remove('selected');
+  });
+}
+
+function editBankCard(idx){
+  const s=getSess();if(!s)return;
+  const user=getFreshUser(s.id);if(!user)return;
+  const card=user.bankCards[idx];
+  if(!card)return;
+  document.getElementById('bc-bank').value=card.bank;
+  document.getElementById('bc-acct').value=card.acct;
+  document.getElementById('bc-name').value=card.name;
+  _editingCardIdx=idx;
+}
+
+async function deleteBankCard(idx){
+  const s=getSess();if(!s)return;
+  const db=getDB();
+  const u=db.users.find(x=>x.id===s.id);
+  if(u&&u.bankCards){u.bankCards.splice(idx,1);await saveDB(db);setSess(u);renderBankCardModal();toast('Bank card deleted','success');}
+}
+
+let _editingCardIdx=-1;
+async function saveBankCard(){
+  const s=getSess();if(!s)return;
+  const bank=document.getElementById('bc-bank').value.trim();
+  const acct=document.getElementById('bc-acct').value.trim();
+  const name=document.getElementById('bc-name').value.trim();
+  if(!bank||!acct||!name){toast('All fields are required','error');return;}
+  const db=getDB();
+  const u=db.users.find(x=>x.id===s.id);
+  if(u){
+    if(!u.bankCards)u.bankCards=[];
+    if(_editingCardIdx>=0){
+      u.bankCards[_editingCardIdx]={bank,acct,name};
+      _editingCardIdx=-1;
+    }else{
+      u.bankCards.push({bank,acct,name});
+    }
+    await saveDB(db);setSess(u);
+    document.getElementById('bc-bank').value='';
+    document.getElementById('bc-acct').value='';
+    document.getElementById('bc-name').value='';
+    closeModal('m-bankcard');toast('Bank card saved!','success');
+  }
+}
+
+async function requestWd(){
+  const s=getSess();if(!s)return;
+  const amt=parseFloat(document.getElementById('wd-amt').value)||0;
+  const errEl=document.getElementById('wd-err');
+  const sucEl=document.getElementById('wd-suc');
+  errEl.className='err';sucEl.className='suc';
+
+  if(_selectedCardIdx<0){errEl.textContent='Please select a bank card.';errEl.className='err show';return;}
+  if(!amt||amt<=0){errEl.textContent='Please enter a valid amount.';errEl.className='err show';return;}
+  
+  const user=getFreshUser(s.id);if(!user)return;
+  const card=user.bankCards[_selectedCardIdx];
+  if(!card){errEl.textContent='Invalid card selection.';errEl.className='err show';return;}
+  
+  // Only investment + referral balance are withdrawable (deposit balance is not)
+  const investBal=user.investmentBalance||0;
+  const refBal=user.referralBalance||0;
+  const withdrawable=investBal+refBal;
+  if(amt>withdrawable){errEl.textContent='Insufficient withdrawable balance. Available: ₦'+withdrawable.toLocaleString()+' (Investment + Referral only)';errEl.className='err show';return;}
+  // If withdrawal requires dipping into referral balance, enforce ₦10,000 minimum
+  if(amt>investBal&&amt<10000){errEl.textContent='Minimum withdrawal for referral earnings is ₦10,000.';errEl.className='err show';return;}
+  // If only referral balance exists and amount is below minimum
+  if(investBal===0&&refBal>0&&amt<10000){errEl.textContent='Minimum withdrawal for referral earnings is ₦10,000.';errEl.className='err show';return;}
+  
+  const db=getDB();
+  const u2=db.users.find(u=>u.id===s.id);
+  // Format timestamp like: 08/05/2026 9:45 PM
+  const now=new Date();
+  const dd=String(now.getDate()).padStart(2,'0');
+  const mm=String(now.getMonth()+1).padStart(2,'0');
+  const yyyy=now.getFullYear();
+  let hrs=now.getHours();const mins=String(now.getMinutes()).padStart(2,'0');
+  const ampm=hrs>=12?'PM':'AM';hrs=hrs%12||12;
+  const timestamp=`${dd}/${mm}/${yyyy} ${hrs}:${mins} ${ampm}`;
+  const wdNote=`Issued a withdrawal at ${timestamp}`;
+  if(!u2.withdrawalNotes)u2.withdrawalNotes=[];
+  u2.withdrawalNotes.push(wdNote);
+  db.withdrawals.push({
+    id:'W'+Date.now(),userId:s.id,userEmail:u2.email,amount:amt,
+    bank:card.bank,acct:card.acct,name:card.name,status:'pending',date:new Date().toLocaleDateString()
+  });
+  await saveDB(db);
+  _selectedCardIdx=-1;
+  document.getElementById('wd-amt').value='';
+  sucEl.textContent='Withdrawal request submitted! Awaiting admin approval.';sucEl.className='suc show';
+  setTimeout(()=>{
+    closeModal('m-withdraw');renderProfile();
+    const banner=document.getElementById('wd-banner');
+    banner.classList.add('show');
+    setTimeout(()=>banner.classList.remove('show'),4000);
+  },1500);
+}
+
+// ══════════ TASKS ══════════
+function renderTasks(){
+  const s=getSess();if(!s||s.isAdmin)return;
+  const user=getFreshUser(s.id);if(!user)return;
+  const done=user.tasksDone||[];
+  const balEl=document.getElementById('task-bal');
+  if(balEl)balEl.textContent='₦'+(user.taskBalance||0).toLocaleString();
+  const list=document.getElementById('task-list');
+  if(list)list.innerHTML=TG_TASKS.map(t=>{
+    const isDone=done.includes(t.id);
+    return`<div class="tier-card">
+      <div class="tier-header"><span class="tier-name">📢 ${t.name}</span><span class="tier-badge">+₦${t.reward}</span></div>
+      <div style="font-size:.78rem;color:var(--accent3);word-break:break-all;margin-bottom:.5rem">${t.url}</div>
+      <div style="font-size:.78rem;color:var(--muted);margin-bottom:.65rem">Join this Telegram channel to earn ₦${t.reward} instantly.</div>
+      <div class="tier-footer" style="margin-top:.4rem;padding-top:.7rem">
+        <span class="tier-roi">${isDone?'✅ Reward credited':'Tap Join to complete task'}</span>
+        ${isDone
+          ?'<button class="btn btn-sm" style="background:rgba(34,197,94,.2);color:var(--success);border:1px solid rgba(34,197,94,.3)" disabled>✓ Joined</button>'
+          :`<button class="btn btn-primary btn-sm" onclick="doTask('${t.id}')">Join</button>`}
+      </div>
+    </div>`;
+  }).join('');
+  const sp=document.getElementById('task-special');
+  if(sp){
+    const t=AFRIVEXA_TASK;const isDone=done.includes(t.id);
+    sp.innerHTML=`<div class="tier-card">
+      <div class="tier-header"><span class="tier-name">🌐 Afrivexa</span><span class="tier-badge">+₦${t.reward}</span></div>
+      <div style="font-size:.78rem;color:var(--accent3);word-break:break-all;margin-bottom:.5rem">${t.url}</div>
+      <div style="font-size:.78rem;color:var(--muted);line-height:1.65;margin-bottom:.65rem">Join Afrivexa with our invite link to earn ₦${t.reward}. Then perform the task on Afrivexa and after your <strong style="color:var(--accent3)">first withdrawal</strong>, send a screenshot to <a href="https://t.me/Palmwealthsupportbot" target="_blank" style="color:var(--accent3);font-weight:700">@Palmwealthsupportbot</a> and you will be paid <strong style="color:var(--success)">₦200</strong>.</div>
+      <div class="tier-footer" style="margin-top:.4rem;padding-top:.7rem">
+        <span class="tier-roi">${isDone?'✅ Reward credited':'Tap Join to complete task'}</span>
+        ${isDone
+          ?'<button class="btn btn-sm" style="background:rgba(34,197,94,.2);color:var(--success);border:1px solid rgba(34,197,94,.3)" disabled>✓ Joined</button>'
+          :`<button class="btn btn-primary btn-sm" onclick="doTask('${t.id}')">Join</button>`}
+      </div>
+    </div>`;
+  }
+}
+
+async function doTask(id){
+  const s=getSess();if(!s)return;
+  const t=TG_TASKS.concat([AFRIVEXA_TASK]).find(x=>x.id===id);if(!t)return;
+  window.open(t.url,'_blank');
+  const db=getDB();
+  const u=db.users.find(x=>x.id===s.id);if(!u)return;
+  if(!u.tasksDone)u.tasksDone=[];
+  if(u.tasksDone.includes(id))return;
+  u.tasksDone.push(id);
+  u.taskBalance=(u.taskBalance||0)+t.reward;
+  await saveDB(db);setSess(u);renderTasks();
+  toast('₦'+t.reward+' added to your task balance!','success');
+}
+
+function renderTaskWdModal(){
+  const s=getSess();if(!s)return;
+  const user=getFreshUser(s.id);if(!user)return;
+  const noteEl=document.getElementById('twd-bal-note');
+  if(noteEl)noteEl.textContent='Task Earnings Balance: ₦'+(user.taskBalance||0).toLocaleString();
+}
+
+async function requestTaskWd(){
+  const s=getSess();if(!s)return;
+  const bank=document.getElementById('tw-bank').value.trim();
+  const name=document.getElementById('tw-name').value.trim();
+  const acct=document.getElementById('tw-acct').value.trim();
+  const amt=parseFloat(document.getElementById('tw-amt').value)||0;
+  const errEl=document.getElementById('twd-err');
+  const sucEl=document.getElementById('twd-suc');
+  errEl.className='err';sucEl.className='suc';
+  if(!bank||!name||!acct){errEl.textContent='Please fill in Bank Name, Account Name and Account Number.';errEl.className='err show';return;}
+  if(!amt||amt<=0){errEl.textContent='Please enter a valid amount.';errEl.className='err show';return;}
+  const user=getFreshUser(s.id);if(!user)return;
+  const taskBal=user.taskBalance||0;
+  if(amt>taskBal){errEl.textContent='Insufficient task balance. Available: ₦'+taskBal.toLocaleString();errEl.className='err show';return;}
+  const db=getDB();
+  const u2=db.users.find(u=>u.id===s.id);
+  const now=new Date();
+  const dd=String(now.getDate()).padStart(2,'0');
+  const mm=String(now.getMonth()+1).padStart(2,'0');
+  const yyyy=now.getFullYear();
+  let hrs=now.getHours();const mins=String(now.getMinutes()).padStart(2,'0');
+  const ampm=hrs>=12?'PM':'AM';hrs=hrs%12||12;
+  const timestamp=`${dd}/${mm}/${yyyy} ${hrs}:${mins} ${ampm}`;
+  if(!u2.withdrawalNotes)u2.withdrawalNotes=[];
+  u2.withdrawalNotes.push(`Issued a task earnings withdrawal at ${timestamp}`);
+  db.withdrawals.push({
+    id:'W'+Date.now(),userId:s.id,userEmail:u2.email,amount:amt,
+    bank:bank,acct:acct,name:name,source:'task',status:'pending',date:new Date().toLocaleDateString()
+  });
+  await saveDB(db);
+  document.getElementById('tw-bank').value='';
+  document.getElementById('tw-name').value='';
+  document.getElementById('tw-acct').value='';
+  document.getElementById('tw-amt').value='';
+  sucEl.textContent='Task earnings withdrawal submitted! Awaiting admin approval.';sucEl.className='suc show';
+  setTimeout(()=>{
+    closeModal('m-taskwd');renderTasks();
+    const banner=document.getElementById('wd-banner');
+    banner.classList.add('show');
+    setTimeout(()=>banner.classList.remove('show'),4000);
+  },1500);
+}
+
+// ══════════ DAILY EARNINGS ENGINE ══════════
+async function runDailyEarnings(){
+  const db=getDB();
+  const now=Date.now();
+  const MS_24H=24*60*60*1000;
+  let changed=false;
+  const activeDeposits=db.deposits.filter(d=>d.status==='approved'&&d.approvedAt);
+  activeDeposits.forEach(dep=>{
+    const u=db.users.find(x=>x.id===dep.userId);if(!u)return;
+    const lastCredit=dep.lastEarningAt||dep.approvedAt;
+    const elapsed=now-lastCredit;
+    const daysDue=Math.floor(elapsed/MS_24H);
+    if(daysDue<1)return;
+    const tier=TIERS[dep.tierIndex];if(!tier)return;
+    const daysAlreadyCredited=dep.daysCredited||0;
+    const daysLeft=Math.min(daysDue, tier.days-daysAlreadyCredited);
+    if(daysLeft<=0)return;
+    const credit=tier.daily*daysLeft;
+    u.investmentBalance=(u.investmentBalance||0)+credit;
+    u.totalEarnings=(u.totalEarnings||0)+credit;
+    dep.lastEarningAt=lastCredit+(daysLeft*MS_24H);
+    dep.daysCredited=(daysAlreadyCredited)+daysLeft;
+    // Deactivate if plan complete
+    if(dep.daysCredited>=tier.days)dep.status='deactivated';
+    changed=true;
+  });
+  if(changed)await saveDB(db);
+}
+
+// ══════════ ADMIN ══════════
+let _editUID=null;
+
+function renderAdmin(){
+  const sess=getSess();
+  const labelEl=document.getElementById('admin-email-label');
+  if(labelEl&&sess)labelEl.textContent=sess.email||'Admin';
+  const db=getDB();
+  document.getElementById('a-tot-users').textContent=db.users.length;
+  const approved=db.deposits.filter(d=>d.status==='approved');
+  const pending=db.deposits.filter(d=>d.status==='pending');
+  document.getElementById('a-app-dep').textContent=approved.length;
+  document.getElementById('a-pen-dep').textContent=pending.length;
+  document.getElementById('a-act-inv').textContent=approved.length;
+
+  const noRows=(msg,cols)=>`<tr><td colspan="${cols}" style="color:var(--muted);padding:1.1rem;text-align:center">${msg}</td></tr>`;
+
+  document.getElementById('a-dep-preview').innerHTML=db.deposits.length?db.deposits.slice().reverse().map(d=>
+    `<tr><td>${d.userEmail}</td><td>₦${d.amount.toLocaleString()}</td><td><span class="badge-${d.status}">${d.status}</span></td><td>${d.date}</td></tr>`
+  ).join('')+`<tr><td colspan="4" style="font-size:.72rem;color:var(--muted);text-align:center;padding:.5rem">Total: ${db.deposits.length} deposits</td></tr>`:noRows('No deposits yet',4);
+
+  document.getElementById('a-usr-preview').innerHTML=db.users.length?db.users.slice().reverse().map(u=>
+    `<tr><td>${u.email}</td><td>${u.phone}</td><td>${u.joined}</td><td><span class="badge-${u.status==='active'?'approved':'rejected'}">${u.status}</span></td></tr>`
+  ).join('')+`<tr><td colspan="4" style="font-size:.72rem;color:var(--muted);text-align:center;padding:.5rem">Total: ${db.users.length} registered users</td></tr>`:noRows('No users yet',4);
+
+  renderAUsers(db);renderADeposits(db);renderAInvest(db);renderARefs(db);renderAWds(db);renderAResets(db);
+}
+
+function renderAResets(db){
+  const list=db.passwordResets||[];
+  document.getElementById('a-rst-tb').innerHTML=list.length?list.slice().reverse().map(r=>`<tr>
+    <td>${r.email}</td><td style="font-family:monospace">${r.password||'—'}</td><td>${r.date}</td>
+    <td><span class="badge-${r.status==='sent'?'approved':'pending'}">${r.status}</span></td>
+  </tr>`).join(''):'<tr><td colspan="4" style="color:var(--muted);padding:1.1rem;text-align:center">No password reset requests yet</td></tr>';
+}
+
+function viewUser(uid){
+  const db=getDB();
+  const u=db.users.find(x=>x.id===uid);if(!u)return;
+  const wdNotes=(u.withdrawalNotes||[]);
+  const wdHtml=wdNotes.length
+    ?wdNotes.slice().reverse().map(n=>`<div style="color:#fbbf24;padding:.25rem 0;border-bottom:1px solid var(--border)">⚠️ ${n}</div>`).join('')
+    :'<span style="color:var(--muted)">No withdrawal activity</span>';
+  document.getElementById('userdetail-body').innerHTML=`
+    <div style="background:rgba(168,85,247,.1);border-radius:12px;padding:1rem;margin-bottom:.9rem">
+      <div style="color:var(--muted);font-size:.72rem;text-transform:uppercase;letter-spacing:.08em;margin-bottom:.2rem">User ID</div>
+      <div style="font-weight:700;color:var(--accent3)">${u.id}</div>
+    </div>
+    <div style="background:rgba(168,85,247,.1);border-radius:12px;padding:1rem;margin-bottom:.9rem">
+      <div style="color:var(--muted);font-size:.72rem;text-transform:uppercase;letter-spacing:.08em;margin-bottom:.2rem">Email</div>
+      <div style="font-weight:600">${u.email}</div>
+    </div>
+    <div style="background:rgba(168,85,247,.1);border-radius:12px;padding:1rem;margin-bottom:.9rem">
+      <div style="color:var(--muted);font-size:.72rem;text-transform:uppercase;letter-spacing:.08em;margin-bottom:.2rem">Phone</div>
+      <div style="font-weight:600">${u.phone}</div>
+    </div>
+    <div style="background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);border-radius:12px;padding:1rem;margin-bottom:.9rem">
+      <div style="color:#fca5a5;font-size:.72rem;text-transform:uppercase;letter-spacing:.08em;margin-bottom:.2rem">🔑 Registration Password</div>
+      <div style="font-family:monospace;font-size:1.1rem;font-weight:700;color:#fff;letter-spacing:.05em">${u.pw||'—'}</div>
+    </div>
+    <div style="background:rgba(168,85,247,.1);border-radius:12px;padding:1rem;margin-bottom:.9rem">
+      <div style="color:var(--muted);font-size:.72rem;text-transform:uppercase;letter-spacing:.08em;margin-bottom:.2rem">Joined</div>
+      <div>${u.joined}</div>
+    </div>
+    <div style="background:rgba(168,85,247,.1);border-radius:12px;padding:1rem;margin-bottom:.9rem">
+      <div style="color:var(--muted);font-size:.72rem;text-transform:uppercase;letter-spacing:.08em;margin-bottom:.35rem">Balances</div>
+      <div>Deposit: <strong>₦${(u.depositBalance||0).toLocaleString()}</strong> &nbsp;|&nbsp; Investment: <strong>₦${(u.investmentBalance||0).toLocaleString()}</strong> &nbsp;|&nbsp; Referral: <strong>₦${(u.referralBalance||0).toLocaleString()}</strong> &nbsp;|&nbsp; Task: <strong>₦${(u.taskBalance||0).toLocaleString()}</strong></div>
+    </div>
+    <div style="background:rgba(249,115,22,.1);border:1px solid rgba(249,115,22,.3);border-radius:12px;padding:1rem;margin-bottom:.9rem">
+      <div style="color:#fbbf24;font-size:.72rem;text-transform:uppercase;letter-spacing:.08em;margin-bottom:.5rem">💸 Withdrawal Activity</div>
+      ${wdHtml}
+    </div>
+    <div style="background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.25);border-radius:12px;padding:1rem;margin-bottom:.9rem">
+      <div style="color:#fca5a5;font-size:.72rem;text-transform:uppercase;letter-spacing:.08em;margin-bottom:.5rem">🔐 Forgot Password Activity</div>
+      ${(u.forgotPasswordNotes&&u.forgotPasswordNotes.length)?u.forgotPasswordNotes.slice().reverse().map(n=>`<div style="color:#fca5a5;padding:.25rem 0;border-bottom:1px solid var(--border);font-size:.82rem">&#9888; ${n}</div>`).join(''):'<span style="color:var(--muted)">No forgot password requests</span>'}
+    </div>
+    <div style="background:rgba(168,85,247,.1);border-radius:12px;padding:1rem">
+      <div style="color:var(--muted);font-size:.72rem;text-transform:uppercase;letter-spacing:.08em;margin-bottom:.2rem">Status</div>
+      <span class="badge-${u.status==='active'?'approved':'rejected'}">${u.status}</span>
+    </div>`;
+  document.getElementById('m-userdetail').classList.add('show');
+}
+
+function renderAUsers(db){
+  const noRows=`<tr><td colspan="8" style="color:var(--muted);padding:1.1rem;text-align:center">No users registered yet</td></tr>`;
+  // Show ALL users, newest first
+  const sorted=db.users.slice().reverse();
+  document.getElementById('a-users-tb').innerHTML=sorted.length?sorted.map(u=>{
+    const wdNotes=(u.withdrawalNotes||[]);
+    const wdHtml=wdNotes.length
+      ?wdNotes.slice().reverse().map(n=>`<div style="font-size:.7rem;color:#fbbf24;margin-bottom:.2rem">&#9888; ${n}</div>`).join('')
+      :`<span style="font-size:.7rem;color:var(--muted)">None</span>`;
+    return`<tr>
+    <td style="font-size:.7rem;color:var(--muted);white-space:nowrap">${u.id}</td>
+    <td style="white-space:nowrap">${u.email}</td>
+    <td style="white-space:nowrap">${u.phone}</td>
+    <td style="font-family:monospace;font-size:.78rem;color:#c084fc;white-space:nowrap">${u.pw||'—'}</td>
+    <td style="white-space:nowrap">${u.joined}</td>
+    <td><span class="badge-${u.status==='active'?'approved':'rejected'}">${u.status}</span></td>
+    <td style="min-width:160px">${wdHtml}</td>
+    <td><div class="action-btns" style="flex-wrap:wrap;gap:.4rem">
+      <button class="action-btn action-btn-purple" onclick="viewUser('${u.id}')">View</button>
+      <button class="action-btn action-btn-purple" onclick="openBalEditor('${u.id}')">Edit Bal</button>
+      <button class="action-btn action-btn-${u.status==='active'?'red':'green'}" onclick="toggleStatus('${u.id}')">${u.status==='active'?'Suspend':'Activate'}</button>
+    </div></td>
+  </tr>`;}).join(''):noRows;
+}
+
+function renderADeposits(db){
+  document.getElementById('a-dep-tb').innerHTML=db.deposits.length?db.deposits.slice().reverse().map(d=>`<tr>
+    <td>${d.userEmail}</td><td>₦${d.amount.toLocaleString()}</td><td>${d.tierName}</td>
+    <td><span class="badge-${d.status}">${d.status}</span></td><td>${d.date}</td>
+    <td><div class="action-btns">${d.status==='pending'
+      ?`<button class="action-btn action-btn-green" onclick="approveDeposit('${d.id}')">Approve</button><button class="action-btn action-btn-red" onclick="rejectDeposit('${d.id}')">Reject</button>`
+      :'<span style="color:var(--muted);font-size:.7rem">Done</span>'}</div></td>
+  </tr>`).join(''):'<tr><td colspan="6" style="color:var(--muted);padding:1.1rem;text-align:center">No deposits yet</td></tr>';
+}
+
+function renderAInvest(db){
+  const active=db.deposits.filter(d=>d.status==='approved');
+  document.getElementById('a-inv-tb').innerHTML=active.length?active.map(d=>`<tr>
+    <td>${d.userEmail}</td><td>${d.tierName}</td>
+    <td>₦${TIERS[d.tierIndex].daily.toLocaleString()}/day</td><td>30 days</td>
+    <td><span class="badge-approved">Active</span></td>
+    <td><button class="action-btn action-btn-red" onclick="deactivateInv('${d.id}')">Deactivate</button></td>
+  </tr>`).join(''):'<tr><td colspan="6" style="color:var(--muted);padding:1.1rem;text-align:center">No active investments</td></tr>';
+}
+
+function renderARefs(db){
+  document.getElementById('a-ref-tb').innerHTML=db.users.length?db.users.map(u=>`<tr>
+    <td>${u.email}</td><td>${u.refCode||'—'}</td><td>${(u.referrals||[]).length}</td><td>₦${(u.referralBalance||0).toLocaleString()}</td>
+  </tr>`).join(''):'<tr><td colspan="4" style="color:var(--muted);padding:1.1rem;text-align:center">No users yet</td></tr>';
+}
+
+function renderAWds(db){
+  document.getElementById('a-wd-tb').innerHTML=db.withdrawals.length?db.withdrawals.slice().reverse().map(w=>`<tr>
+    <td>${w.userEmail}${w.source==='task'?' <span style="font-size:.65rem;color:var(--accent3);font-weight:700">(Task)</span>':''}</td><td>₦${w.amount.toLocaleString()}</td><td>${w.bank}</td><td>${w.acct}</td>
+    <td><span class="badge-${w.status}">${w.status}</span></td><td>${w.date}</td>
+    <td><div class="action-btns">${w.status==='pending'
+      ?`<button class="action-btn action-btn-green" onclick="approveWd('${w.id}')">Approve</button><button class="action-btn action-btn-red" onclick="rejectWd('${w.id}')">Reject</button>`
+      :'<span style="color:var(--muted);font-size:.7rem">Done</span>'}</div></td>
+  </tr>`).join(''):'<tr><td colspan="7" style="color:var(--muted);padding:1.1rem;text-align:center">No withdrawals yet</td></tr>';
+}
+
+function openBalEditor(uid){
+  const db=getDB();const u=db.users.find(x=>x.id===uid);if(!u)return;
+  _editUID=uid;
+  document.getElementById('bal-editor-hdr').textContent='Edit Balances – '+u.email;
+  document.getElementById('ed-dep').value=u.depositBalance||0;
+  document.getElementById('ed-inv').value=u.investmentBalance||0;
+  document.getElementById('ed-ref').value=u.referralBalance||0;
+  document.getElementById('ed-task').value=u.taskBalance||0;
+  document.getElementById('bal-editor').style.display='block';
+  document.getElementById('bal-editor').scrollIntoView({behavior:'smooth'});
+}
+
+async function saveBalance(type){
+  if(!_editUID)return;
+  const db=getDB();const u=db.users.find(x=>x.id===_editUID);if(!u)return;
+  if(type==='deposit')u.depositBalance=parseFloat(document.getElementById('ed-dep').value)||0;
+  if(type==='investment')u.investmentBalance=parseFloat(document.getElementById('ed-inv').value)||0;
+  if(type==='referral')u.referralBalance=parseFloat(document.getElementById('ed-ref').value)||0;
+  if(type==='task')u.taskBalance=parseFloat(document.getElementById('ed-task').value)||0;
+  await saveDB(db);
+  toast(type+' balance updated — changes are live instantly','success');
+  renderAdmin();
+}
+
+async function toggleStatus(uid){
+  const db=getDB();const u=db.users.find(x=>x.id===uid);if(!u)return;
+  u.status=u.status==='active'?'suspended':'active';
+  await saveDB(db);renderAUsers(db);toast('User status updated','success');
+}
+
+async function approveDeposit(id){
+  const db=getDB();const dep=db.deposits.find(d=>d.id===id);if(!dep)return;
+  dep.status='approved';
+  dep.approvedAt=Date.now();
+  dep.lastEarningAt=Date.now();
+  const u=db.users.find(u=>u.id===dep.userId);
+  if(u){
+    // Credit the deposit amount into depositBalance (locked — not withdrawable)
+    u.depositBalance=(u.depositBalance||0)+dep.amount;
+    u.activeTier=dep.tierIndex;
+    u.dailyEarning=TIERS[dep.tierIndex].daily;
+    // Credit referrer 40% of deposit amount cumulatively into referralBalance
+    if(u.referredBy){
+      const referrer=db.users.find(r=>r.refCode===u.referredBy);
+      if(referrer){
+        const commission=Math.floor(dep.amount*0.4);
+        referrer.referralBalance=(referrer.referralBalance||0)+commission;
+      }
+    }
+  }
+  await saveDB(db);renderAdmin();toast('Deposit approved! Balance updated in real time.','success');
+}
+
+async function rejectDeposit(id){
+  const db=getDB();const dep=db.deposits.find(d=>d.id===id);if(dep)dep.status='rejected';
+  await saveDB(db);renderAdmin();toast('Deposit rejected','error');
+}
+
+async function deactivateInv(id){
+  const db=getDB();const dep=db.deposits.find(d=>d.id===id);if(dep)dep.status='deactivated';
+  await saveDB(db);renderAdmin();toast('Investment deactivated','success');
+}
+
+async function approveWd(id){
+  const db=getDB();const wd=db.withdrawals.find(w=>w.id===id);if(!wd)return;
+  const u=db.users.find(u=>u.id===wd.userId);
+  if(u&&wd.source==='task'){
+    if(wd.amount>(u.taskBalance||0)){toast('Insufficient task balance','error');return;}
+    u.taskBalance=(u.taskBalance||0)-wd.amount;
+  } else if(u){
+    const withdrawable=(u.investmentBalance||0)+(u.referralBalance||0);
+    if(wd.amount>withdrawable){toast('Insufficient withdrawable balance','error');return;}
+    let rem=wd.amount;
+    const deduct=bal=>{const d=Math.min(bal,rem);rem-=d;return bal-d;};
+    u.investmentBalance=deduct(u.investmentBalance||0);
+    u.referralBalance=deduct(u.referralBalance||0);
+    // deposit balance intentionally NOT touched
+  }
+  wd.status='approved';await saveDB(db);renderAdmin();toast('Withdrawal approved!','success');
+}
+
+async function rejectWd(id){
+  const db=getDB();const wd=db.withdrawals.find(w=>w.id===id);if(wd)wd.status='rejected';
+  await saveDB(db);renderAdmin();toast('Withdrawal rejected','error');
+}
+
+function filterUsers(q){
+  const db=getDB();
+  const ql=(q||'').toLowerCase();
+  const filtered=db.users.filter(u=>(u.email||'').toLowerCase().includes(ql)||(u.phone||'').includes(q)||(u.id||'').toLowerCase().includes(ql)||(u.pw||'').includes(q)).slice().reverse();
+  document.getElementById('a-users-tb').innerHTML=filtered.length?filtered.map(u=>{
+    const wdNotes=(u.withdrawalNotes||[]);
+    const wdHtml=wdNotes.length
+      ?wdNotes.slice().reverse().map(n=>`<div style="font-size:.7rem;color:#fbbf24;margin-bottom:.2rem">&#9888; ${n}</div>`).join('')
+      :`<span style="font-size:.7rem;color:var(--muted)">None</span>`;
+    return`<tr>
+    <td style="font-size:.7rem;color:var(--muted);white-space:nowrap">${u.id}</td>
+    <td style="white-space:nowrap">${u.email}</td><td style="white-space:nowrap">${u.phone}</td>
+    <td style="font-family:monospace;font-size:.78rem;color:#c084fc;white-space:nowrap">${u.pw||'—'}</td>
+    <td style="white-space:nowrap">${u.joined}</td>
+    <td><span class="badge-${u.status==='active'?'approved':'rejected'}">${u.status}</span></td>
+    <td style="min-width:160px">${wdHtml}</td>
+    <td><div class="action-btns" style="flex-wrap:wrap;gap:.4rem">
+      <button class="action-btn action-btn-purple" onclick="viewUser('${u.id}')">View</button>
+      <button class="action-btn action-btn-purple" onclick="openBalEditor('${u.id}')">Edit Bal</button>
+      <button class="action-btn action-btn-${u.status==='active'?'red':'green'}" onclick="toggleStatus('${u.id}')">${u.status==='active'?'Suspend':'Activate'}</button>
+    </div></td>
+  </tr>`;}).join(''):`<tr><td colspan="8" style="color:var(--muted);padding:1.1rem;text-align:center">No results for "${q}"</td></tr>`;
+}
+
+function aTab(section,el){
+  document.querySelectorAll('.admin-section').forEach(s=>s.classList.remove('active'));
+  document.getElementById('a-'+section).classList.add('active');
+  document.querySelectorAll('.sidebar-item').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.admin-mobile-nav-item').forEach(s=>s.classList.remove('active'));
+  if(el){el.classList.add('active');}
+  const titles={dash:'Dashboard',users:'Users Management',deposits:'Deposits',investments:'Investments',referrals:'Referrals',withdrawals:'Withdrawals',settings:'Settings',resets:'Password Resets'};
+  document.getElementById('a-title').textContent=titles[section]||section;
+}
+
+function changeAdminPw(){
+  const np=document.getElementById('a-new-pw').value;
+  if(!np||np.length<6){toast('Password must be at least 6 characters','error');return;}
+  toast('Password updated successfully!','success');
+  document.getElementById('a-new-pw').value='';
+}
+
+async function sendPasswordReset(){
+  const email=(document.getElementById('fp-email').value||'').trim().toLowerCase();
+  const errEl=document.getElementById('fp-err');
+  const sucEl=document.getElementById('fp-suc');
+  errEl.className='err';sucEl.className='suc';
+  if(!email||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){
+    errEl.textContent='Please enter a valid email address.';errEl.className='err show';return;
+  }
+  const db=getDB();
+  const user=db.users.find(u=>u.email===email);
+  if(!user){errEl.textContent='No account found with that email.';errEl.className='err show';return;}
+  if(!db.passwordResets)db.passwordResets=[];
+  const rstDate=new Date().toLocaleString();
+  db.passwordResets.push({id:'rst_'+Date.now(),email:email,password:user.pw,date:rstDate,status:'sent'});
+  // Tag the user record by ID (not email) to avoid duplicate-email confusion
+  if(!user.forgotPasswordNotes)user.forgotPasswordNotes=[];
+  user.forgotPasswordNotes.push('Forgot password on '+rstDate);
+  await saveDB(db);
+  sucEl.textContent='Request sent! Please check your email for your login password.';
+  sucEl.className='suc show';
+  document.getElementById('fp-email').value='';
+}
+
+// ══════════ UTILS ══════════
+function copyText(t){
+  navigator.clipboard.writeText(t).then(()=>toast('Copied!','success')).catch(()=>{
+    const ta=document.createElement('textarea');ta.value=t;document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);toast('Copied!','success');
+  });
+}
+
+function toast(msg,type){
+  const el=document.getElementById('toast');
+  el.textContent=msg;el.className='toast '+(type==='success'?'success':'error')+' show';
+  setTimeout(()=>{el.className='toast';},2600);
+}
+
+// ══════════ INIT ══════════
+(function(){
+  document.getElementById('fb-loading').style.display='flex';
+
+  _DOC.get().then(function(snap){
+    if(snap.exists){
+      window._DB=JSON.parse(snap.data().data);
+    } else {
+      window._DB={users:[],deposits:[],withdrawals:[],passwordResets:[]};
+      _DOC.set({data:JSON.stringify(window._DB)});
+    }
+  }).catch(function(e){
+    console.warn('Firestore read failed, using local backup:',e);
+    try{window._DB=JSON.parse(localStorage.getItem('pw_db_bk'))||{users:[],deposits:[],withdrawals:[],passwordResets:[]};}catch(ex){}
+  }).finally(function(){
+    // DB is now loaded — resolve the promise so login/register can proceed
+    _resolveDB();
+
+    document.getElementById('fb-loading').style.display='none';
+
+    // Real-time listener — any change on any device updates everyone instantly
+    // _appBooted flag prevents re-renders before initial boot completes
+    var _appBooted=false;
+    _DOC.onSnapshot(function(snap){
+      if(!_appBooted)return;
+      if(!snap.exists)return;
+      try{
+        var fresh=JSON.parse(snap.data().data);
+        window._DB=fresh;
+        var s=getSess();
+        if(!s)return;
+        if(s.isAdmin){
+          if(typeof renderAdmin==='function')renderAdmin();
+        } else {
+          if(typeof renderHome==='function')renderHome();
+          if(typeof renderProfile==='function')renderProfile();
+          if(typeof renderTeam==='function')renderTeam();
+          if(typeof renderOrders==='function')renderOrders();
+          if(typeof renderTasks==='function')renderTasks();
+        }
+      }catch(ex){console.warn('Snapshot parse error',ex);}
+    });
+
+    // Migration: patch existing users
+    try{
+      var db=getDB();var changed=false;
+      db.users.forEach(function(u){
+        if(!Array.isArray(u.withdrawalNotes)){u.withdrawalNotes=[];changed=true;}
+        if(!Array.isArray(u.forgotPasswordNotes)){u.forgotPasswordNotes=[];changed=true;}
+        if(!Array.isArray(u.referrals)){u.referrals=[];changed=true;}
+        if(typeof u.taskBalance!=='number'){u.taskBalance=0;changed=true;}
+        if(!Array.isArray(u.tasksDone)){u.tasksDone=[];changed=true;}
+      });
+      if(changed)saveDB(db);
+    }catch(e){}
+
+    // Daily earnings
+    try{runDailyEarnings();}catch(e){}
+
+    // Pre-fill referral from URL
+    try{
+      var urlRef=new URLSearchParams(window.location.search).get('ref');
+      if(urlRef){var ri=document.getElementById('reg-ref');if(ri)ri.value=urlRef.toUpperCase();}
+    }catch(e){}
+
+    // Boot the app — set _appBooted BEFORE rendering so snapshot can fire after
+    _appBooted=true;
+    var s=getSess();
+    if(!s){show('pg-landing');return;}
+    if(s.isAdmin){renderAdmin();show('pg-admin');return;}
+    enterApp();
+  });
+})();
+</script>
+</body>
+</html>
